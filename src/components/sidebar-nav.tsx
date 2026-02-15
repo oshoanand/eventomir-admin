@@ -25,7 +25,7 @@ import {
   Headset,
   Briefcase,
   Paperclip,
-  Currency,
+  CreditCard,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -57,7 +57,7 @@ const menuGroups = [
     label: "Конфигурация",
     items: [
       { href: "/settings", icon: Settings, label: "Настройки" },
-      { href: "/pricing", icon: Currency, label: "Тарифы" },
+      { href: "/pricing", icon: CreditCard, label: "Тарифы" },
     ],
   },
   {
@@ -80,7 +80,7 @@ export function SidebarNav() {
 
   return (
     <>
-      <SidebarHeader>
+      <SidebarHeader className="bg-slate-50">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
@@ -123,7 +123,7 @@ export function SidebarNav() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="bg-slate-50">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
