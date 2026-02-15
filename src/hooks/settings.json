@@ -1,0 +1,30 @@
+{
+  "siteName": "Eventomir",
+  "logoUrl": "/placeholder-logo.png",
+  "logoAltText": "Eventomir Logo",
+  "faviconUrl": "/favicon.ico",
+  "contacts": {
+    "email": "contact@eventomir.com",
+    "phone": "+1234567890",
+    "vkLink": "https://vk.com/eventomir",
+    "telegramLink": "https://t.me/eventomir"
+  },
+  "theme": {
+    "backgroundColor": "#ffffff",
+    "primaryColor": "#000000",
+    "accentColor": "#ff0000"
+  },
+  "fontFamily": "Arial, sans-serif",
+  "siteCategories": [
+    { "id": "1", "name": "Catering", "icon": "Utensils" },
+    { "id": "2", "name": "Music", "icon": "Music" }
+  ],
+  "pageSpecificSEO": [
+    {
+      "path": "/about",
+      "title": "About Us",
+      "description": "Learn more about Eventomir.",
+      "keywords": "eventomir, about"
+    }
+  ]
+}

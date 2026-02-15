@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "avatar1",
+      "description": "User avatar 1",
+      "imageUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBmYWNlfGVufDB8fHx8MTc2NzAxOTExMXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar2",
+      "description": "User avatar 2",
+      "imageUrl": "https://images.unsplash.com/photo-1580489944761-15a19d654956?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NzA2MTU5Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "avatar3",
+      "description": "User avatar 3",
+      "imageUrl": "https://images.unsplash.com/photo-1639747280804-dd2d6b3d88ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxtYW4lMjBzbWlsaW5nfGVufDB8fHx8MTc2NzA0OTYyM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man smiling"
+    },
+    {
+      "id": "avatar4",
+      "description": "User avatar 4",
+      "imageUrl": "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwcm9maWxlfGVufDB8fHx8MTc2NzA4OTMxNXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person profile"
+    },
+    {
+      "id": "avatar5",
+      "description": "User avatar 5",
+      "imageUrl": "https://images.unsplash.com/photo-1662848586769-314289d4c8b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx3b21hbiUyMGdsYXNzZXN8ZW58MHx8fHwxNzY3MDQxMjI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman glasses"
+    },
+    {
+      "id": "avatar6",
+      "description": "User avatar 6",
+      "imageUrl": "https://images.unsplash.com/photo-1653071163733-c3a803a896d0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxtYW4lMjBiZWFyZHxlbnwwfHx8fDE3NjcwOTMyMjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man beard"
+    }
+  ]
+}
