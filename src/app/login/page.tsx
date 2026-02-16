@@ -254,13 +254,13 @@ export default function LoginPage() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">
-                  Secure System
+                  Безопасная система администрирования
                 </span>
               </div>
             </div>
             <p className="mt-4 text-center text-xs text-slate-400">
-              &copy; {new Date().getFullYear()} eventomir.ru | All rights
-              reserved
+              &copy; {new Date().getFullYear()} eventomir.ru | Все права
+              защищены
             </p>
           </div>
         </div>
