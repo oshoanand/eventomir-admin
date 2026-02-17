@@ -81,9 +81,7 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError(
-          "Неверные учетные данные. Пожалуйста, проверьте свою электронную почту или пароль.",
-        );
+        setError(res.error);
         setIsLoading(false);
       } else {
         router.push(callbackUrl);
@@ -186,7 +184,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="flex items-center justify-between">
+                    {/* <div className="flex items-center justify-between">
                       <FormLabel className="text-xs font-medium uppercase tracking-wide text-slate-500">
                         Пароль
                       </FormLabel>
@@ -196,7 +194,7 @@ export default function LoginPage() {
                       >
                         Забыли пароль?
                       </a>
-                    </div>
+                    </div> */}
                     <FormControl>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

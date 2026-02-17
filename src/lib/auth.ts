@@ -7,32 +7,35 @@ import jwt from "jsonwebtoken";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
-      } as const,
+      },
 
       async authorize(credentials) {
         try {
-          // 1. Validate credentials
+          // 1. Validate input
           if (!credentials?.email || !credentials?.password) {
             throw new Error("Email and Password are required");
           }
 
-          // 2. Find user in database
+          // 2. Find user in database by EMAIL ONLY
+          // We removed the 'role' constraint here to allow us to give a specific error message later
           const user = await prisma.user.findUnique({
             where: {
               email: credentials.email,
-              role: "administrator",
             },
           });
 
-          // 3. Verify user exists
+          // 3. Verify user exists and has a password
           if (!user || !user.password) {
-            throw new Error("email or password is incorrect !");
+            throw new Error("Неверный адрес электронной почты или пароль!");
           }
 
           // 4. Verify password
@@ -42,15 +45,28 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isValidPassword) {
-            throw new Error("Password is wrong !");
+            throw new Error("Неверный адрес электронной почты или пароль!");
           }
 
+          // 5. ROLE CHECK (The new requirement)
+          // Check if the user has one of the allowed roles
+          const allowedRoles = ["administrator", "support"]; // Adjust "administrator" based on your exact DB string
+
+          if (!user.role || !allowedRoles.includes(user.role)) {
+            // This specific error message will be sent to the client
+            throw new Error(
+              "Доступ запрещен! Требуются права Администратора или Поддержки.",
+            );
+          }
+
+          // 6. Generate Custom Token (If you need this for external API calls)
           const secret = process.env.NEXTAUTH_SECRET!;
           const token = jwt.sign(
             {
               id: user.id,
               name: user.name,
               email: user.email,
+              role: user.role, // Include role in token
               iat: Date.now() / 1000,
               exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
             },
@@ -59,27 +75,24 @@ export const authOptions: NextAuthOptions = {
               algorithm: "HS256",
             },
           );
+
+          // 7. Return user object
           return {
             id: user.id,
             name: user.name,
             email: user.email,
-            mobile: user.phone,
+            phone: user.phone,
             role: user.role,
             accessToken: token,
           };
         } catch (error: any) {
+          // Throwing an error here makes next-auth redirect to error page
+          // or returns { error: 'message' } if using signIn() on client
           throw new Error(error.message);
-        } finally {
-          async () => {
-            await prisma.$disconnect();
-          };
         }
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
 
   callbacks: {
     async jwt({ token, user }) {
@@ -89,20 +102,24 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name ? user.name.toString() : "";
         token.email = user.email ? user.email.toString() : "";
         token.accessToken = user.accessToken;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.id;
-      session.user.image = token.image;
-      session.user.name = token.name;
-      session.user.email = token.email;
-      session.accessToken = token.accessToken;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.image = token.image as string;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
+        session.user.role = token.role as string;
+        session.user.accessToken = token.accessToken as string;
+      }
       return session;
     },
   },
   pages: {
-    signIn: "/login", // Custom sign-in page path
+    signIn: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
