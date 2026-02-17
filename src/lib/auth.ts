@@ -22,7 +22,9 @@ export const authOptions: NextAuthOptions = {
         try {
           // 1. Validate input
           if (!credentials?.email || !credentials?.password) {
-            throw new Error("Email and Password are required");
+            throw new Error(
+              "Требуется указать адрес электронной почты и пароль.",
+            );
           }
 
           // 2. Find user in database by EMAIL ONLY
@@ -86,9 +88,22 @@ export const authOptions: NextAuthOptions = {
             accessToken: token,
           };
         } catch (error: any) {
-          // Throwing an error here makes next-auth redirect to error page
-          // or returns { error: 'message' } if using signIn() on client
-          throw new Error(error.message);
+          // 1. Log the actual technical error to the server console for the developer
+          console.error("Authorize Error:", error);
+
+          // 2. Determine if it's an error we manually threw above (User-friendly)
+          // or a system error (Prisma/DB crash)
+          const isCustomError =
+            error.message ===
+              "Требуется указать адрес электронной почты и пароль" ||
+            error.message === "Неверный адрес электронной почты или пароль!";
+
+          if (isCustomError) {
+            throw new Error(error.message);
+          }
+
+          // 3. If it's a database/prisma error, mask it with a generic message
+          throw new Error("Проверьте свой адрес электронной почты еще раз!");
         }
       },
     }),

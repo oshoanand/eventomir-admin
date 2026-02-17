@@ -1,44 +1,61 @@
 "use client";
 
 import { toast as sonnerToast, type ExternalToast } from "sonner";
+import { cn } from "@/utils/utils";
 
-// Define the shape of the Action used in your app
 type ToastAction = {
   label: string;
   onClick: () => void;
 };
 
-// Combine Sonner's native props with your custom variants
 type ToastProps = {
   title?: React.ReactNode;
   description?: React.ReactNode;
   variant?: "default" | "destructive" | "success";
-  action?: ToastAction; // Explicitly adding this for type safety
+  action?: ToastAction;
 } & ExternalToast;
 
-function toast({ title, description, variant, action, ...props }: ToastProps) {
-  // 1. Handle "Destructive" (Error) Variant
+function toast({
+  title,
+  description,
+  variant,
+  action,
+  className,
+  ...props
+}: ToastProps) {
+  // 1. Handle "Destructive" (Error) -> Light Red Background
   if (variant === "destructive") {
     return sonnerToast.error(title, {
       description,
-      action: action, // Pass the action object directly
+      action,
+      // FIX: Added '!' to classes to override Sonner default styles
+      className: cn(
+        "!bg-red-100 !border-red-200 !text-red-800 dark:!bg-red-900/30 dark:!border-red-900 dark:!text-red-200",
+        className,
+      ),
       ...props,
     });
   }
 
-  // 2. Handle "Success" Variant (Green)
+  // 2. Handle "Success" Variant -> Light Green Background
   if (variant === "success") {
     return sonnerToast.success(title, {
       description,
-      action: action,
+      action,
+      // FIX: Added '!' to classes
+      className: cn(
+        "!bg-green-100 !border-green-200 !text-green-800 dark:!bg-green-900/30 dark:!border-green-900 dark:!text-green-200",
+        className,
+      ),
       ...props,
     });
   }
 
-  // 3. Default Variant (Standard/Black)
+  // 3. Default Variant
   return sonnerToast(title, {
     description,
-    action: action,
+    action,
+    className,
     ...props,
   });
 }
@@ -46,7 +63,6 @@ function toast({ title, description, variant, action, ...props }: ToastProps) {
 function useToast() {
   return {
     toast,
-    // Sonner handles dismiss via ID, which toast() returns
     dismiss: (toastId?: string | number) => sonnerToast.dismiss(toastId),
   };
 }
