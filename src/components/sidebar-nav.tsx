@@ -336,6 +336,7 @@ import {
   CreditCard,
   Users, // Icon for User Management
   Shield,
+  Square,
 } from "lucide-react";
 
 export function SidebarNav() {
@@ -366,6 +367,11 @@ export function SidebarNav() {
                 icon: Users,
                 label: "Управление пользователями",
               }, // CRUD Page
+              {
+                href: "/bookings",
+                icon: Square,
+                label: "Бронирование",
+              },
             ],
           },
         ]

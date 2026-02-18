@@ -929,7 +929,7 @@ const SettingsPage = () => {
           </Card>
 
           {/* Categories */}
-          <Card>
+          {/* <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="space-y-1">
                 <CardTitle className="text-lg flex items-center">
@@ -995,10 +995,10 @@ const SettingsPage = () => {
                 Сохранить Категории
               </Button>
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Pricing */}
-          <Card>
+          {/* <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center">
                 <DollarSign className="mr-2 h-5 w-5" /> Управление Тарифами
@@ -1193,7 +1193,7 @@ const SettingsPage = () => {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card> */}
         </CardContent>
       </Card>
 

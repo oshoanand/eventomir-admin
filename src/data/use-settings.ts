@@ -108,7 +108,7 @@ const uploadFile = async (payload: {
   // apiRequest needs to handle FormData correctly (usually by removing Content-Type header so browser sets boundary)
   return await apiRequest({
     method: "post",
-    url: "/api/upload",
+    url: "/api/settings/upload",
     data: formData,
     headers: {
       "Content-Type": "multipart/form-data", // Ensure your apiRequest utility handles this removal/setting correctly

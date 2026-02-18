@@ -1,5 +1,4 @@
 import CustomersTable from "@/components/customers-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PerformersPage() {
   return (
@@ -9,14 +8,8 @@ export default function PerformersPage() {
           Управление клиентами
         </h1>
       </div>
-      <Card>
-        {/* <CardHeader>
-          <CardTitle>Performers</CardTitle>
-        </CardHeader> */}
-        <CardContent>
-          <CustomersTable />
-        </CardContent>
-      </Card>
+
+      <CustomersTable />
     </div>
   );
 }

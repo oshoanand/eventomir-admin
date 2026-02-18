@@ -1,5 +1,4 @@
 import PerformersTable from "@/components/performers-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PerformersPage() {
   return (
@@ -9,14 +8,8 @@ export default function PerformersPage() {
           Управление исполнителями
         </h1>
       </div>
-      <Card>
-        {/* <CardHeader>
-          <CardTitle>Performers</CardTitle>
-        </CardHeader> */}
-        <CardContent>
-          <PerformersTable />
-        </CardContent>
-      </Card>
+
+      <PerformersTable />
     </div>
   );
 }

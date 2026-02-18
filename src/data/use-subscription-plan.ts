@@ -25,15 +25,15 @@ export type CreatePlanDTO = Omit<
 // --- API Functions ---
 
 const fetchAdminPlans = async (): Promise<SubscriptionPlan[]> => {
-  return await apiRequest({ method: "get", url: "/api/admin/plans" });
+  return await apiRequest({ method: "get", url: "/api/tariff/plans" });
 };
 
 const fetchAdminPlanById = async (id: string): Promise<SubscriptionPlan> => {
-  return await apiRequest({ method: "get", url: `/api/admin/plans/${id}` });
+  return await apiRequest({ method: "get", url: `/api/tariff/plans/${id}` });
 };
 
 const createPlanFn = async (data: CreatePlanDTO): Promise<SubscriptionPlan> => {
-  return await apiRequest({ method: "post", url: "/api/admin/plans", data });
+  return await apiRequest({ method: "post", url: "/api/tariff/plans", data });
 };
 
 const updatePlanFn = async ({
@@ -45,13 +45,13 @@ const updatePlanFn = async ({
 }): Promise<SubscriptionPlan> => {
   return await apiRequest({
     method: "patch",
-    url: `/api/admin/plans/${id}`,
+    url: `/api/tariff/plans/${id}`,
     data,
   });
 };
 
 const deletePlanFn = async (id: string): Promise<void> => {
-  return await apiRequest({ method: "delete", url: `/api/admin/plans/${id}` });
+  return await apiRequest({ method: "delete", url: `/api/tariff/plans/${id}` });
 };
 
 // --- Hooks ---
