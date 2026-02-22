@@ -68,6 +68,7 @@ export function SidebarNav() {
       items: [
         { href: "/users/performers", icon: User, label: "Исполнители" },
         { href: "/users/customers", icon: User, label: "Заказчик" },
+        { href: "/partners", icon: User, label: "Партнеры" },
       ],
     },
     {

@@ -53,7 +53,7 @@ export const authOptions: NextAuthOptions = {
           // 5. ROLE CHECK (The new requirement)
           // Check if the user has one of the allowed roles
           const allowedRoles = ["administrator", "support"]; // Adjust "administrator" based on your exact DB string
-
+          console.log(allowedRoles);
           if (!user.role || !allowedRoles.includes(user.role)) {
             // This specific error message will be sent to the client
             throw new Error(
@@ -68,7 +68,7 @@ export const authOptions: NextAuthOptions = {
               id: user.id,
               name: user.name,
               email: user.email,
-              role: user.role, // Include role in token
+              role: user.role,
               iat: Date.now() / 1000,
               exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
             },

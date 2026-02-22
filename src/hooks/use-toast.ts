@@ -28,7 +28,6 @@ function toast({
     return sonnerToast.error(title, {
       description,
       action,
-      // FIX: Added '!' to classes to override Sonner default styles
       className: cn(
         "!bg-red-100 !border-red-200 !text-red-800 dark:!bg-red-900/30 dark:!border-red-900 dark:!text-red-200",
         className,
@@ -42,7 +41,6 @@ function toast({
     return sonnerToast.success(title, {
       description,
       action,
-      // FIX: Added '!' to classes
       className: cn(
         "!bg-green-100 !border-green-200 !text-green-800 dark:!bg-green-900/30 dark:!border-green-900 dark:!text-green-200",
         className,

@@ -459,9 +459,10 @@ export default function SettingsPage() {
           <TabsTrigger value="seo" className="gap-2 px-4 py-2">
             <Tags className="h-4 w-4" /> SEO
           </TabsTrigger>
-          <TabsTrigger value="pricing" className="gap-2 px-4 py-2">
+
+          {/* <TabsTrigger value="pricing" className="gap-2 px-4 py-2">
             <DollarSign className="h-4 w-4" /> Тарифы
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         {/* 1. GENERAL TAB */}

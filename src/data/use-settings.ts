@@ -146,7 +146,7 @@ export function useUpdateSettingsMutation() {
       toast({
         title: "Настройки сохранены",
         description: "Общие настройки сайта успешно обновлены.",
-        variant: "default", // or "success" if you have that variant
+        variant: "success", // or "success" if you have that variant
       });
     },
     onError: (error: any) => {
@@ -185,7 +185,7 @@ export function useUpdatePricingMutation() {
       toast({
         title: "Тарифы обновлены",
         description: "Настройки цен и подписок успешно сохранены.",
-        variant: "default",
+        variant: "success",
       });
     },
     onError: (error: any) => {

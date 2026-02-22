@@ -1,20 +1,3 @@
-// export interface TokenPayload {
-//   id: number | string;
-//   tokenCode: string;
-//   orderNumber: string;
-//   mobileNumber: string;
-//   status: string;
-//   createdAt: string | Date;
-// }
-
-// export interface NotificationContextType {
-//   notifications: TokenPayload[];
-//   unreadCount: number;
-//   markAllAsRead: () => void;
-//   socket: any; // Or use Socket from 'socket.io-client' if strict
-// }
-// types/notification.ts
-
 // Existing Token Type
 export interface TokenPayload {
   type: "TOKEN"; // Discriminator
@@ -37,8 +20,20 @@ export interface JobPayload {
   createdAt: string | Date;
 }
 
-// Union Type for State
-export type NotificationItem = TokenPayload | JobPayload;
+// Add this interface
+export interface PartnerRequestPayload {
+  type: "PARTNER_REQUEST" | "SYSTEM";
+  message: string;
+  link?: string;
+  createdAt: string;
+}
+
+// Update your Union Type
+export type NotificationItem =
+  | TokenPayload
+  | JobPayload
+  | PartnerRequestPayload
+  | any;
 
 export interface NotificationContextType {
   notifications: NotificationItem[];
