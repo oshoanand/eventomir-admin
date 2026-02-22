@@ -309,8 +309,8 @@ export default function UserManagementPage() {
               <SelectItem value="all">Все роли</SelectItem>
               <SelectItem value="administrator">Администраторы</SelectItem>
               <SelectItem value="support">Поддержка</SelectItem>
-              <SelectItem value="customer">Заказчики</SelectItem>
-              <SelectItem value="performer">Исполнители</SelectItem>
+              {/* <SelectItem value="customer">Заказчики</SelectItem>
+              <SelectItem value="performer">Исполнители</SelectItem> */}
             </SelectContent>
           </Select>
         </div>
