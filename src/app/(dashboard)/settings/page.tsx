@@ -30,6 +30,7 @@ import {
   X,
   Upload,
   Mail,
+  LayoutTemplate,
 } from "lucide-react";
 import {
   Select,
@@ -49,6 +50,8 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 // Import hooks and types from your data folder
 import {
   useGeneralSettingsQuery,
@@ -63,23 +66,37 @@ import {
   type SubscriptionPlanDetails,
 } from "@/data/use-settings";
 
+// --- BEST APPROACH: CURATED THEME PRESETS ---
+const THEME_OPTIONS = [
+  { id: "zinc", name: "Монохром (Zinc)", color: "bg-zinc-900" },
+  { id: "rose", name: "Роза (Rose)", color: "bg-rose-600" },
+  { id: "blue", name: "Океан (Blue)", color: "bg-blue-600" },
+  { id: "green", name: "Природа (Green)", color: "bg-green-600" },
+  { id: "orange", name: "Закат (Orange)", color: "bg-orange-500" },
+];
+
+const RADIUS_OPTIONS = [
+  { label: "Квадратный (0)", value: "0rem" },
+  { label: "Слегка (0.3rem)", value: "0.3rem" },
+  { label: "Стандарт (0.5rem)", value: "0.5rem" },
+  { label: "Сильно (0.75rem)", value: "0.75rem" },
+  { label: "Круглый (1rem)", value: "1rem" },
+];
+
 const popularFonts = [
   "Arial, sans-serif",
   "Verdana, sans-serif",
   "Helvetica, sans-serif",
   "Tahoma, sans-serif",
   "Trebuchet MS, sans-serif",
-  "Times New Roman, serif",
-  "Georgia, serif",
-  "Garamond, serif",
-  "Courier New, monospace",
-  "Brush Script MT, cursive",
+  "Inter, sans-serif",
+  "Roboto, sans-serif",
 ];
 
-const SettingsPage = () => {
+export default function SettingsPage() {
   const { toast } = useToast();
 
-  // --- 1. Data Fetching via React Query ---
+  // --- 1. Data Fetching ---
   const { data: serverSettings, isLoading: isSettingsLoading } =
     useGeneralSettingsQuery();
   const { data: serverPrices, isLoading: isPricesLoading } =
@@ -90,25 +107,20 @@ const SettingsPage = () => {
   const updatePricingMutation = useUpdatePricingMutation();
   const uploadFileMutation = useFileUploadMutation();
 
-  // --- 3. Local State (Initialized from Server Data) ---
-  // We keep local state so users can edit inputs before saving
+  // --- 3. Local State ---
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [priceConfig, setPriceConfig] = useState<FullPriceConfig | null>(null);
 
-  // Sync server data to local state when loaded
   useEffect(() => {
     if (serverSettings) setSettings(serverSettings);
   }, [serverSettings]);
-
   useEffect(() => {
     if (serverPrices) setPriceConfig(serverPrices);
   }, [serverPrices]);
 
-  // States for file uploads
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [faviconFile, setFaviconFile] = useState<File | null>(null);
 
-  // States for category dialog
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SiteCategory | null>(
     null,
@@ -118,7 +130,6 @@ const SettingsPage = () => {
     icon: string;
   }>({ name: "", icon: "PlusCircle" });
 
-  // States for SEO Dialog
   const [isSeoDialogOpen, setIsSeoDialogOpen] = useState(false);
   const [editingSeo, setEditingSeo] = useState<PageSEO | null>(null);
   const [seoFormData, setSeoFormData] = useState<PageSEO>({
@@ -127,13 +138,17 @@ const SettingsPage = () => {
     description: "",
     keywords: "",
   });
-  const isEditingSeoDialog = !!editingSeo;
 
-  // --- Handlers ---
-
-  // Generic handler to update local settings state
+  // --- 4. Generic Handlers ---
   const handleSettingsChange = (field: keyof SiteSettings, value: any) => {
     setSettings((prev) => (prev ? { ...prev, [field]: value } : null));
+  };
+
+  const handleThemeChange = (field: string, value: string) => {
+    setSettings((prev: any) => {
+      if (!prev) return null;
+      return { ...prev, theme: { ...prev.theme, [field]: value } };
+    });
   };
 
   const handleContactSettingsChange = (
@@ -142,33 +157,22 @@ const SettingsPage = () => {
   ) => {
     setSettings((prev) => {
       if (!prev) return null;
-      return {
-        ...prev,
-        contacts: {
-          ...prev.contacts,
-          [field]: value,
-        },
-      };
+      return { ...prev, contacts: { ...prev.contacts, [field]: value } };
     });
   };
 
-  // --- SAVE LOGIC (General) ---
   const handleSaveSettings = async (keysToSave: (keyof SiteSettings)[]) => {
     if (!settings) return;
-
-    // Create a copy of the settings to modify
     let settingsToUpdateFull = { ...settings };
 
     try {
-      // 1. Handle File Uploads first if they exist
       if (logoFile) {
         toast({ description: "Загрузка логотипа..." });
         const response = await uploadFileMutation.mutateAsync({
           file: logoFile,
           type: "logo",
         });
-        // @ts-ignore - assuming response returns { url: string }
-        settingsToUpdateFull.logoUrl = response.url;
+        settingsToUpdateFull.logoUrl = (response as any).url;
       }
       if (faviconFile) {
         toast({ description: "Загрузка фавикона..." });
@@ -176,84 +180,45 @@ const SettingsPage = () => {
           file: faviconFile,
           type: "favicon",
         });
-        // @ts-ignore
-        settingsToUpdateFull.faviconUrl = response.url;
+        settingsToUpdateFull.faviconUrl = (response as any).url;
       }
 
-      // 2. Prepare Partial Update Object
       const partialUpdate: Partial<SiteSettings> = {};
       keysToSave.forEach((key) => {
-        // @ts-ignore
-        partialUpdate[key] = settingsToUpdateFull[key];
+        partialUpdate[key] = settingsToUpdateFull[key] as any;
       });
 
-      // Always include URLs if they were just updated via upload
       if (logoFile) partialUpdate.logoUrl = settingsToUpdateFull.logoUrl;
       if (faviconFile)
         partialUpdate.faviconUrl = settingsToUpdateFull.faviconUrl;
 
-      // 3. Trigger Mutation
       updateSettingsMutation.mutate(partialUpdate, {
         onSuccess: () => {
-          // Clear file inputs on success
           setLogoFile(null);
           setFaviconFile(null);
-          // Update local state with the new URLs if needed
           setSettings(settingsToUpdateFull);
         },
       });
     } catch (error) {
       console.error("Save flow failed", error);
-      // Error toast is handled by mutation hook
     }
   };
 
-  // --- SAVE LOGIC (Prices) ---
   const handleSavePrices = () => {
-    if (!priceConfig) return;
-    updatePricingMutation.mutate(priceConfig);
+    if (priceConfig) updatePricingMutation.mutate(priceConfig);
   };
 
-  // --- UI Helpers ---
+  // --- 5. Icon Helper ---
   const renderIcon = (iconName: string, props: any) => {
-    // @ts-ignore
-    const IconComponent = LucideIcons[iconName] as React.ElementType;
-    if (!IconComponent) {
-      // @ts-ignore
-      return <LucideIcons.HelpCircle {...props} />;
-    }
-    return <IconComponent {...props} />;
+    const IconComponent = (LucideIcons as any)[iconName] as React.ElementType;
+    return IconComponent ? (
+      <IconComponent {...props} />
+    ) : (
+      <LucideIcons.HelpCircle {...props} />
+    );
   };
 
-  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setLogoFile(file);
-      setSettings((prev) =>
-        prev ? { ...prev, logoUrl: URL.createObjectURL(file) } : null,
-      );
-    }
-  };
-
-  const handleFaviconFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!["image/x-icon", "image/png", "image/svg+xml"].includes(file.type)) {
-        toast({
-          variant: "destructive",
-          title: "Ошибка",
-          description: "Допустимые форматы для фавикона: .ico, .png, .svg.",
-        });
-        return;
-      }
-      setFaviconFile(file);
-      setSettings((prev) =>
-        prev ? { ...prev, faviconUrl: URL.createObjectURL(file) } : null,
-      );
-    }
-  };
-
-  // --- Category Handlers ---
+  // --- 6. Category Handlers ---
   const openAddCategoryDialog = () => {
     setEditingCategory(null);
     setCategoryFormData({ name: "", icon: "PlusCircle" });
@@ -266,10 +231,6 @@ const SettingsPage = () => {
     setIsCategoryDialogOpen(true);
   };
 
-  const handleCategoryFormChange = (field: "name" | "icon", value: string) => {
-    setCategoryFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
   const handleSaveCategory = () => {
     if (!settings || !categoryFormData.name.trim()) {
       toast({
@@ -279,12 +240,11 @@ const SettingsPage = () => {
       });
       return;
     }
-    // @ts-ignore
-    if (!LucideIcons[categoryFormData.icon]) {
+    if (!(LucideIcons as any)[categoryFormData.icon]) {
       toast({
         variant: "destructive",
         title: "Ошибка",
-        description: "Укажите неверное имя иконки Lucide.",
+        description: "Неверное имя иконки.",
       });
       return;
     }
@@ -297,18 +257,16 @@ const SettingsPage = () => {
           : cat,
       );
     } else {
-      const newCategory: SiteCategory = {
-        id: String(Date.now()),
-        ...categoryFormData,
-      };
-      updatedCategories = [...settings.siteCategories, newCategory];
+      updatedCategories = [
+        ...settings.siteCategories,
+        { id: String(Date.now()), ...categoryFormData },
+      ];
     }
     handleSettingsChange("siteCategories", updatedCategories);
     setIsCategoryDialogOpen(false);
     toast({
-      title: "Изменения готовы к сохранению",
-      description:
-        "Нажмите кнопку 'Сохранить Категории', чтобы применить изменения.",
+      title: "Категории обновлены",
+      description: "Нажмите 'Сохранить Категории'.",
     });
   };
 
@@ -319,26 +277,25 @@ const SettingsPage = () => {
     );
     handleSettingsChange("siteCategories", updatedCategories);
     toast({
-      title: "Категория готова к удалению",
-      description: "Нажмите 'Сохранить Категории' для подтверждения.",
       variant: "destructive",
+      title: "Категория удалена",
+      description: "Нажмите 'Сохранить Категории'.",
     });
   };
 
-  // --- Price Handlers ---
+  // --- 7. Pricing Handlers ---
   const handlePriceChange = (
-    planId: SubscriptionPlanDetails["id"],
+    planId: string,
     duration: "monthly" | "halfYearly" | "yearly",
     value: string,
   ) => {
-    setPriceConfig((prevConfig) => {
-      if (!prevConfig) return null;
+    setPriceConfig((prev) => {
+      if (!prev) return null;
       const newPrice = parseInt(value, 10);
-      if (isNaN(newPrice) || newPrice < 0) return prevConfig;
-
+      if (isNaN(newPrice) || newPrice < 0) return prev;
       return {
-        ...prevConfig,
-        plans: prevConfig.plans.map((plan) =>
+        ...prev,
+        plans: prev.plans.map((plan) =>
           plan.id === planId
             ? { ...plan, price: { ...plan.price, [duration]: newPrice } }
             : plan,
@@ -348,15 +305,15 @@ const SettingsPage = () => {
   };
 
   const handlePlanFieldChange = (
-    planId: SubscriptionPlanDetails["id"],
+    planId: string,
     field: "name" | "description",
     value: string,
   ) => {
-    setPriceConfig((prevConfig) => {
-      if (!prevConfig) return null;
+    setPriceConfig((prev) => {
+      if (!prev) return null;
       return {
-        ...prevConfig,
-        plans: prevConfig.plans.map((plan) =>
+        ...prev,
+        plans: prev.plans.map((plan) =>
           plan.id === planId ? { ...plan, [field]: value } : plan,
         ),
       };
@@ -364,15 +321,15 @@ const SettingsPage = () => {
   };
 
   const handleFeatureChange = (
-    planId: SubscriptionPlanDetails["id"],
+    planId: string,
     featureIndex: number,
     value: string,
   ) => {
-    setPriceConfig((prevConfig) => {
-      if (!prevConfig) return null;
+    setPriceConfig((prev) => {
+      if (!prev) return null;
       return {
-        ...prevConfig,
-        plans: prevConfig.plans.map((plan) => {
+        ...prev,
+        plans: prev.plans.map((plan) => {
           if (plan.id === planId) {
             const newFeatures = [...plan.features];
             newFeatures[featureIndex] = value;
@@ -384,12 +341,12 @@ const SettingsPage = () => {
     });
   };
 
-  const handleAddFeature = (planId: SubscriptionPlanDetails["id"]) => {
-    setPriceConfig((prevConfig) => {
-      if (!prevConfig) return null;
+  const handleAddFeature = (planId: string) => {
+    setPriceConfig((prev) => {
+      if (!prev) return null;
       return {
-        ...prevConfig,
-        plans: prevConfig.plans.map((plan) =>
+        ...prev,
+        plans: prev.plans.map((plan) =>
           plan.id === planId
             ? { ...plan, features: [...plan.features, "Новая возможность"] }
             : plan,
@@ -398,20 +355,17 @@ const SettingsPage = () => {
     });
   };
 
-  const handleRemoveFeature = (
-    planId: SubscriptionPlanDetails["id"],
-    featureIndex: number,
-  ) => {
-    setPriceConfig((prevConfig) => {
-      if (!prevConfig) return null;
+  const handleRemoveFeature = (planId: string, featureIndex: number) => {
+    setPriceConfig((prev) => {
+      if (!prev) return null;
       return {
-        ...prevConfig,
-        plans: prevConfig.plans.map((plan) => {
+        ...prev,
+        plans: prev.plans.map((plan) => {
           if (plan.id === planId) {
-            const newFeatures = plan.features.filter(
-              (_, index) => index !== featureIndex,
-            );
-            return { ...plan, features: newFeatures };
+            return {
+              ...plan,
+              features: plan.features.filter((_, idx) => idx !== featureIndex),
+            };
           }
           return plan;
         }),
@@ -419,21 +373,7 @@ const SettingsPage = () => {
     });
   };
 
-  const handlePaidRequestPriceChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const value = e.target.value;
-    const newPrice = parseInt(value, 10);
-    if (priceConfig) {
-      if (!isNaN(newPrice) && newPrice >= 0) {
-        setPriceConfig({ ...priceConfig, paidRequestPrice: newPrice });
-      } else if (value === "") {
-        setPriceConfig({ ...priceConfig, paidRequestPrice: 0 });
-      }
-    }
-  };
-
-  // --- SEO Handlers ---
+  // --- 8. SEO Handlers ---
   const openSeoDialog = (seo: PageSEO | null) => {
     setEditingSeo(seo);
     setSeoFormData(
@@ -442,16 +382,12 @@ const SettingsPage = () => {
     setIsSeoDialogOpen(true);
   };
 
-  const handleSeoFormChange = (field: keyof PageSEO, value: string) => {
-    setSeoFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
   const handleSaveSeo = () => {
     if (!settings || !seoFormData.path.trim()) {
       toast({
         variant: "destructive",
         title: "Ошибка",
-        description: "Путь к странице (URL) обязателен.",
+        description: "URL обязателен.",
       });
       return;
     }
@@ -466,7 +402,7 @@ const SettingsPage = () => {
         toast({
           variant: "destructive",
           title: "Ошибка",
-          description: "SEO для этого пути уже существует.",
+          description: "SEO для этого пути уже есть.",
         });
         return;
       }
@@ -474,11 +410,6 @@ const SettingsPage = () => {
     }
     handleSettingsChange("pageSpecificSEO", updatedSeoList);
     setIsSeoDialogOpen(false);
-    toast({
-      title: "SEO-настройки готовы к сохранению",
-      description:
-        "Нажмите 'Сохранить SEO-настройки', чтобы применить изменения.",
-    });
   };
 
   const handleRemoveSeo = (path: string) => {
@@ -487,95 +418,66 @@ const SettingsPage = () => {
       (s) => s.path !== path,
     );
     handleSettingsChange("pageSpecificSEO", updatedSeoList);
-    toast({
-      title: "SEO-настройки готовы к удалению",
-      description: "Нажмите 'Сохранить SEO-настройки' для подтверждения.",
-      variant: "destructive",
-    });
   };
 
-  // --- Skeletons ---
-  const SettingsSkeleton = () => (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-7 w-48" />
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Skeleton className="h-10 w-32" />
-      </CardFooter>
-    </Card>
-  );
-
-  const PriceSkeleton = () => (
-    <div className="space-y-6">
-      <Skeleton className="h-10 w-40" />
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-1/3 mb-4" />
-        <Skeleton className="h-8 w-1/4" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-        <Separator />
-        <Skeleton className="h-8 w-1/4" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
-      <Separator />
-      <Skeleton className="h-8 w-1/3 mb-2" />
-      <Skeleton className="h-10 w-1/2" />
-      <Skeleton className="h-10 w-32" />
-    </div>
-  );
-
+  // --- RENDER SKELETON ---
   if (isSettingsLoading || !settings) {
     return (
-      <div className="container mx-auto py-10 space-y-8">
-        <SettingsSkeleton />
-        <SettingsSkeleton />
-        <SettingsSkeleton />
-        <SettingsSkeleton />
+      <div className="container mx-auto py-10 space-y-6">
+        <Skeleton className="h-[40px] w-64 mb-6" />
+        <Skeleton className="h-[500px] w-full rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto pt-2 pb-10">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl flex items-center">
-            <Settings className="mr-2 h-6 w-6" /> Настройки Сайта
-          </CardTitle>
-          <CardDescription>
-            Управление основными параметрами и внешним видом платформы
-            Eventomir.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          {/* General Settings */}
-          <Card>
+    <div className="container mx-auto pt-2 pb-10 max-w-6xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Настройки Платформы
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Управляйте внешним видом, контентом и тарифами клиентской части сайта.
+        </p>
+      </div>
+
+      <Tabs defaultValue="general" className="space-y-6">
+        {/* TABS NAVIGATION */}
+        <TabsList className="bg-white border w-full flex-wrap h-auto p-1 justify-start shadow-sm">
+          <TabsTrigger value="general" className="gap-2 px-4 py-2">
+            <Settings className="h-4 w-4" /> Общие
+          </TabsTrigger>
+          <TabsTrigger value="design" className="gap-2 px-4 py-2">
+            <LayoutTemplate className="h-4 w-4" /> Дизайн
+          </TabsTrigger>
+          <TabsTrigger value="contacts" className="gap-2 px-4 py-2">
+            <Mail className="h-4 w-4" /> Контакты
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="gap-2 px-4 py-2">
+            <UserCog className="h-4 w-4" /> Категории
+          </TabsTrigger>
+          <TabsTrigger value="seo" className="gap-2 px-4 py-2">
+            <Tags className="h-4 w-4" /> SEO
+          </TabsTrigger>
+          <TabsTrigger value="pricing" className="gap-2 px-4 py-2">
+            <DollarSign className="h-4 w-4" /> Тарифы
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 1. GENERAL TAB */}
+        <TabsContent value="general">
+          <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <ImageIcon className="mr-2 h-5 w-5" /> Общие настройки
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" /> Основные
+                настройки
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="siteName">Название сайта</Label>
+            <CardContent className="space-y-8">
+              <div className="space-y-2 max-w-xl">
+                <Label htmlFor="siteName" className="font-semibold">
+                  Название сайта
+                </Label>
                 <Input
                   id="siteName"
                   value={settings.siteName}
@@ -584,162 +486,279 @@ const SettingsPage = () => {
                   }
                 />
               </div>
+
               <Separator />
-              <div className="space-y-2">
-                <Label>Логотип</Label>
-                <div className="flex flex-col sm:flex-row items-start gap-4">
-                  <label
-                    htmlFor="logoFile"
-                    className="w-32 h-32 bg-muted rounded flex items-center justify-center flex-shrink-0 border-2 border-dashed hover:border-primary hover:bg-muted/50 transition-colors cursor-pointer group"
-                  >
-                    {settings.logoUrl ? (
-                      <img
-                        src={settings.logoUrl}
-                        alt={settings.logoAltText || "Логотип сайта"}
-                        className="max-w-full max-h-full object-contain"
+              <div className="space-y-4">
+                <Label className="font-semibold text-base">
+                  Логотип и Фавикон
+                </Label>
+                <div className="flex flex-col sm:flex-row gap-8">
+                  {/* Logo Upload */}
+                  <div className="flex flex-col gap-2">
+                    <label className="w-48 h-28 bg-slate-50 border-2 border-dashed border-slate-300 flex items-center justify-center rounded-lg cursor-pointer hover:border-primary hover:bg-slate-100 transition-all">
+                      {settings.logoUrl || logoFile ? (
+                        <img
+                          src={
+                            logoFile
+                              ? URL.createObjectURL(logoFile)
+                              : settings.logoUrl
+                          }
+                          alt="Logo"
+                          className="max-h-full p-2 object-contain"
+                        />
+                      ) : (
+                        <Upload className="text-slate-400 h-8 w-8" />
+                      )}
+                      <Input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) =>
+                          setLogoFile(e.target.files?.[0] || null)
+                        }
                       />
-                    ) : (
-                      <div className="text-center text-muted-foreground">
-                        <Upload className="mx-auto h-8 w-8 group-hover:text-primary" />
-                        <p className="text-xs mt-1">Загрузить лого</p>
-                      </div>
-                    )}
-                  </label>
-                  <Input
-                    id="logoFile"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoFileChange}
-                  />
-                  <div className="flex-grow space-y-2">
-                    <Label htmlFor="logoAltText">
-                      Alt текст для логотипа (SEO)
-                    </Label>
-                    <Input
-                      id="logoAltText"
-                      type="text"
-                      placeholder="Краткое описание логотипа"
-                      value={settings.logoAltText}
-                      onChange={(e) =>
-                        handleSettingsChange("logoAltText", e.target.value)
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Опишите логотип для поисковых систем и доступности.
+                    </label>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Логотип сайта
+                    </p>
+                  </div>
+
+                  {/* Favicon Upload */}
+                  <div className="flex flex-col gap-2">
+                    <label className="w-28 h-28 bg-slate-50 border-2 border-dashed border-slate-300 flex items-center justify-center rounded-lg cursor-pointer hover:border-primary hover:bg-slate-100 transition-all">
+                      {settings.faviconUrl || faviconFile ? (
+                        <img
+                          src={
+                            faviconFile
+                              ? URL.createObjectURL(faviconFile)
+                              : settings.faviconUrl
+                          }
+                          alt="Favicon"
+                          className="max-h-full p-2 object-contain"
+                        />
+                      ) : (
+                        <Upload className="text-slate-400 h-6 w-6" />
+                      )}
+                      <Input
+                        type="file"
+                        className="hidden"
+                        accept=".ico,.png"
+                        onChange={(e) =>
+                          setFaviconFile(e.target.files?.[0] || null)
+                        }
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Фавикон (.ico, .png)
                     </p>
                   </div>
                 </div>
               </div>
+
+              <div className="pt-4">
+                <Button
+                  onClick={() =>
+                    handleSaveSettings(["siteName", "logoUrl", "faviconUrl"])
+                  }
+                  disabled={updateSettingsMutation.isPending}
+                  className="w-full sm:w-auto"
+                >
+                  {updateSettingsMutation.isPending
+                    ? "Сохранение..."
+                    : "Сохранить общие настройки"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 2. DESIGN TAB */}
+        <TabsContent value="design">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5 text-primary" /> Цветовая тема и
+                дизайн
+              </CardTitle>
+              <CardDescription>
+                Выберите профессионально подобранный визуальный стиль.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {/* Preset Picker */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">
+                  Цветовая тема (Пресет)
+                </Label>
+                <div className="flex flex-wrap gap-6">
+                  {THEME_OPTIONS.map((theme) => {
+                    const isActive =
+                      (settings.theme as any)?.preset === theme.id;
+                    return (
+                      <div
+                        key={theme.id}
+                        className="flex flex-col items-center gap-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleThemeChange("preset", theme.id)}
+                          className={`h-14 w-14 rounded-full ${theme.color} transition-all border-4 shadow-sm ${
+                            isActive
+                              ? "border-primary ring-4 ring-primary/20 ring-offset-2 scale-110"
+                              : "border-white hover:scale-110 hover:shadow-md"
+                          }`}
+                          title={theme.name}
+                        />
+                        <span
+                          className={`text-xs font-medium ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                        >
+                          {theme.name.split(" ")[0]}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <Separator />
-              <div className="space-y-2">
-                <Label>Фавикон</Label>
-                <div className="flex items-center gap-4">
-                  <label
-                    htmlFor="faviconFile"
-                    className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0 border-2 border-dashed hover:border-primary hover:bg-muted/50 transition-colors cursor-pointer group"
-                  >
-                    {settings.faviconUrl ? (
-                      <img
-                        src={settings.faviconUrl}
-                        alt="Фавикон сайта"
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
-                    )}
-                  </label>
+
+              {/* Radius Picker */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">
+                  Скругление углов интерфейса
+                </Label>
+                <div className="flex flex-wrap gap-3">
+                  {RADIUS_OPTIONS.map((rad) => {
+                    const isActive =
+                      (settings.theme as any)?.radius === rad.value;
+                    return (
+                      <Button
+                        key={rad.value}
+                        type="button"
+                        variant={isActive ? "default" : "outline"}
+                        onClick={() => handleThemeChange("radius", rad.value)}
+                        className="h-16 px-6 flex flex-col items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100"
+                        style={{
+                          borderRadius: rad.value,
+                          backgroundColor: isActive
+                            ? "hsl(var(--primary))"
+                            : "",
+                        }}
+                      >
+                        <span className="text-sm font-medium">
+                          {rad.label.split(" ")[0]}
+                        </span>
+                        <span className="text-xs opacity-70">{rad.value}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Font Picker */}
+              <div className="space-y-4 max-w-sm">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <TypeIcon className="h-4 w-4" /> Основной шрифт (Font Family)
+                </Label>
+                <Select
+                  value={settings.fontFamily}
+                  onValueChange={(val) =>
+                    handleSettingsChange("fontFamily", val)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите шрифт" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {popularFonts.map((f) => (
+                      <SelectItem key={f} value={f} style={{ fontFamily: f }}>
+                        {f.split(",")[0]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="pt-4">
+                <Button
+                  onClick={() => handleSaveSettings(["theme", "fontFamily"])}
+                  disabled={updateSettingsMutation.isPending}
+                  className="w-full sm:w-auto"
+                >
+                  {updateSettingsMutation.isPending
+                    ? "Сохранение..."
+                    : "Применить дизайн"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 3. CONTACTS TAB */}
+        <TabsContent value="contacts">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" /> Контактная информация
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 max-w-2xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contactEmail">Контактный Email</Label>
                   <Input
-                    id="faviconFile"
-                    type="file"
-                    accept=".ico, image/png, image/svg+xml"
-                    className="hidden"
-                    onChange={handleFaviconFileChange}
+                    id="contactEmail"
+                    type="email"
+                    value={settings.contacts?.email || ""}
+                    onChange={(e) =>
+                      handleContactSettingsChange("email", e.target.value)
+                    }
+                    placeholder="support@example.com"
                   />
-                  <div className="text-xs text-muted-foreground">
-                    <p>Нажмите на иконку, чтобы загрузить файл.</p>
-                    <p>Рекомендуемый формат: ICO, PNG, SVG (32x32 px).</p>
-                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactPhone">Телефон</Label>
+                  <Input
+                    id="contactPhone"
+                    type="tel"
+                    value={settings.contacts?.phone || ""}
+                    onChange={(e) =>
+                      handleContactSettingsChange("phone", e.target.value)
+                    }
+                    placeholder="+7 (999) 123-45-67"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vkLink">Ссылка на VK</Label>
+                  <Input
+                    id="vkLink"
+                    type="url"
+                    value={settings.contacts?.vkLink || ""}
+                    onChange={(e) =>
+                      handleContactSettingsChange("vkLink", e.target.value)
+                    }
+                    placeholder="https://vk.com/..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telegramLink">Ссылка на Telegram</Label>
+                  <Input
+                    id="telegramLink"
+                    type="url"
+                    value={settings.contacts?.telegramLink || ""}
+                    onChange={(e) =>
+                      handleContactSettingsChange(
+                        "telegramLink",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="https://t.me/..."
+                  />
                 </div>
               </div>
               <Button
-                variant="destructive"
-                onClick={() =>
-                  handleSaveSettings([
-                    "siteName",
-                    "logoAltText",
-                    "logoUrl",
-                    "faviconUrl",
-                  ])
-                }
-                disabled={updateSettingsMutation.isPending}
-              >
-                {updateSettingsMutation.isPending
-                  ? "Сохранение..."
-                  : "Сохранить общие настройки"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Contacts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Mail className="mr-2 h-5 w-5" /> Контактная информация и
-                соцсети
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="contactEmail">Контактный Email</Label>
-                <Input
-                  id="contactEmail"
-                  type="email"
-                  value={settings.contacts?.email || ""}
-                  onChange={(e) =>
-                    handleContactSettingsChange("email", e.target.value)
-                  }
-                  placeholder="support@example.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="contactPhone">Контактный Телефон</Label>
-                <Input
-                  id="contactPhone"
-                  type="tel"
-                  value={settings.contacts?.phone || ""}
-                  onChange={(e) =>
-                    handleContactSettingsChange("phone", e.target.value)
-                  }
-                  placeholder="+7 (999) 123-45-67"
-                />
-              </div>
-              <div>
-                <Label htmlFor="vkLink">Ссылка на VK</Label>
-                <Input
-                  id="vkLink"
-                  type="url"
-                  value={settings.contacts?.vkLink || ""}
-                  onChange={(e) =>
-                    handleContactSettingsChange("vkLink", e.target.value)
-                  }
-                  placeholder="https://vk.com/..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="telegramLink">Ссылка на Telegram</Label>
-                <Input
-                  id="telegramLink"
-                  type="url"
-                  value={settings.contacts?.telegramLink || ""}
-                  onChange={(e) =>
-                    handleContactSettingsChange("telegramLink", e.target.value)
-                  }
-                  placeholder="https://t.me/..."
-                />
-              </div>
-              <Button
-                variant="destructive"
                 onClick={() => handleSaveSettings(["contacts"])}
                 disabled={updateSettingsMutation.isPending}
               >
@@ -747,321 +766,218 @@ const SettingsPage = () => {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Color Scheme */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Palette className="mr-2 h-5 w-5" /> Цветовая схема
-              </CardTitle>
-              <CardDescription>
-                Выберите цвета, которые будут использоваться на сайте.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="backgroundColor">Цвет фона</Label>
-                <Input
-                  id="backgroundColor"
-                  type="color"
-                  value={settings.theme.backgroundColor}
-                  onChange={(e) =>
-                    handleSettingsChange("theme", {
-                      ...settings.theme,
-                      backgroundColor: e.target.value,
-                    })
-                  }
-                  className="h-10"
-                />
-              </div>
-              <div>
-                <Label htmlFor="primaryColor">Основной цвет</Label>
-                <Input
-                  id="primaryColor"
-                  type="color"
-                  value={settings.theme.primaryColor}
-                  onChange={(e) =>
-                    handleSettingsChange("theme", {
-                      ...settings.theme,
-                      primaryColor: e.target.value,
-                    })
-                  }
-                  className="h-10"
-                />
-              </div>
-              <div>
-                <Label htmlFor="accentColor">Акцентный цвет</Label>
-                <Input
-                  id="accentColor"
-                  type="color"
-                  value={settings.theme.accentColor}
-                  onChange={(e) =>
-                    handleSettingsChange("theme", {
-                      ...settings.theme,
-                      accentColor: e.target.value,
-                    })
-                  }
-                  className="h-10"
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <Button
-                  variant="destructive"
-                  onClick={() => handleSaveSettings(["theme"])}
-                  disabled={updateSettingsMutation.isPending}
-                >
-                  Сохранить цветовую схему
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* SEO */}
-          <Card>
+        {/* 4. CATEGORIES TAB */}
+        <TabsContent value="categories">
+          <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1.5">
-                <CardTitle className="text-lg flex items-center">
-                  <Tags className="mr-2 h-5 w-5" /> SEO-настройки по страницам
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCog className="h-5 w-5 text-primary" /> Управление
+                  категориями
                 </CardTitle>
                 <CardDescription>
-                  Управляйте мета-тегами для каждой страницы вашего сайта.
+                  Услуги, отображаемые на главной странице.
                 </CardDescription>
               </div>
-              <Button variant="destructive" onClick={() => openSeoDialog(null)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Добавить страницу
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10"
+                onClick={openAddCategoryDialog}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Добавить
               </Button>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-72 w-full rounded-md border">
-                <div className="p-4 space-y-2">
-                  {settings.pageSpecificSEO.length > 0 ? (
-                    settings.pageSpecificSEO.map((seo) => (
-                      <div
-                        key={seo.path}
-                        className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md"
-                      >
-                        <div className="flex-grow">
-                          <p className="font-mono text-sm font-semibold text-primary">
-                            {seo.path}
-                          </p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {seo.title}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openSeoDialog(seo)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleRemoveSeo(seo.path)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+              <div className="border rounded-lg bg-slate-50/50 p-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {settings.siteCategories.length > 0 ? (
+                  settings.siteCategories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        {renderIcon(category.icon, {
+                          className: "h-5 w-5 text-primary",
+                        })}
+                        <span className="font-medium text-sm">
+                          {category.name}
+                        </span>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-center text-muted-foreground py-4">
-                      SEO-настройки для страниц еще не добавлены.
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-              <Button
-                variant="destructive"
-                onClick={() => handleSaveSettings(["pageSpecificSEO"])}
-                disabled={updateSettingsMutation.isPending}
-                className="mt-4"
-              >
-                Сохранить SEO-настройки
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Fonts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <TypeIcon className="mr-2 h-5 w-5" /> Шрифты
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="fontFamilySelect">Основной шрифт сайта</Label>
-                <Select
-                  value={settings.fontFamily}
-                  onValueChange={(value) =>
-                    handleSettingsChange("fontFamily", value)
-                  }
-                >
-                  <SelectTrigger id="fontFamilySelect">
-                    <SelectValue placeholder="Выберите шрифт" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {popularFonts.map((font) => (
-                      <SelectItem
-                        key={font}
-                        value={font}
-                        style={{ fontFamily: font }}
-                      >
-                        {font.split(",")[0]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-blue-600"
+                          onClick={() => openEditCategoryDialog(category)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleRemoveCategory(category.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground p-4 col-span-full text-center">
+                    Категорий пока нет.
+                  </p>
+                )}
               </div>
               <Button
-                variant="destructive"
-                onClick={() => handleSaveSettings(["fontFamily"])}
-                disabled={updateSettingsMutation.isPending}
-              >
-                Сохранить настройки шрифтов
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Categories */}
-          {/* <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-lg flex items-center">
-                  <UserCog className="mr-2 h-5 w-5" /> Управление категориями
-                </CardTitle>
-                <CardDescription>
-                  Добавляйте, редактируйте или удаляйте категории услуг.
-                </CardDescription>
-              </div>
-              <Button variant="destructive" onClick={openAddCategoryDialog}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Добавить категорию
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ScrollArea className="h-72 w-full rounded-md border">
-                <div className="p-4">
-                  {settings.siteCategories.length > 0 ? (
-                    settings.siteCategories.map((category) => (
-                      <div
-                        key={category.id}
-                        className="flex items-center justify-between py-2 px-3 hover:bg-muted/50 rounded-md"
-                      >
-                        <div className="flex items-center gap-3">
-                          {renderIcon(category.icon, {
-                            className: "h-5 w-5 text-muted-foreground",
-                          })}
-                          <span className="font-medium">{category.name}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditCategoryDialog(category)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Редактировать</span>
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleRemoveCategory(category.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Удалить</span>
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-center text-muted-foreground py-4">
-                      Категорий пока нет.
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-              <Button
-                variant="destructive"
+                className="mt-6"
                 onClick={() => handleSaveSettings(["siteCategories"])}
                 disabled={updateSettingsMutation.isPending}
               >
                 Сохранить Категории
               </Button>
             </CardContent>
-          </Card> */}
+          </Card>
+        </TabsContent>
 
-          {/* Pricing */}
-          {/* <Card>
+        {/* 5. SEO TAB */}
+        <TabsContent value="seo">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Tags className="h-5 w-5 text-primary" /> SEO-настройки
+                </CardTitle>
+                <CardDescription>
+                  Управляйте мета-тегами (Title, Description) для маршрутов.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10"
+                onClick={() => openSeoDialog(null)}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Добавить SEO
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {settings.pageSpecificSEO.length > 0 ? (
+                  settings.pageSpecificSEO.map((seo) => (
+                    <div
+                      key={seo.path}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border rounded-lg gap-4"
+                    >
+                      <div className="flex-grow">
+                        <p className="font-mono text-sm font-semibold text-primary">
+                          {seo.path}
+                        </p>
+                        <p className="text-sm font-medium mt-1">{seo.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {seo.description}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openSeoDialog(seo)}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" /> Изменить
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleRemoveSeo(seo.path)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-center text-muted-foreground py-8 border rounded-lg bg-slate-50 border-dashed">
+                    SEO-настройки не добавлены.
+                  </p>
+                )}
+              </div>
+              <Button
+                className="mt-6"
+                onClick={() => handleSaveSettings(["pageSpecificSEO"])}
+                disabled={updateSettingsMutation.isPending}
+              >
+                Сохранить SEO
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 6. PRICING TAB */}
+        <TabsContent value="pricing">
+          <Card className="shadow-sm bg-slate-50/50">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <DollarSign className="mr-2 h-5 w-5" /> Управление Тарифами
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" /> Управление
+                Тарифами
               </CardTitle>
-              <CardDescription>
-                Управляйте названиями, описаниями, ценами и возможностями
-                тарифных планов.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {isPricesLoading || !priceConfig ? (
-                <PriceSkeleton />
+                <Skeleton className="h-[400px] w-full" />
               ) : (
                 <div className="space-y-8">
                   {priceConfig.plans
                     .filter((p) => p.id !== "econom")
                     .map((plan) => (
-                      <Card key={plan.id} className="p-4">
-                        <CardHeader className="p-2">
-                          <CardTitle className="text-xl">{plan.name}</CardTitle>
+                      <Card key={plan.id} className="border-2 shadow-sm">
+                        <CardHeader className="bg-slate-50 border-b pb-4">
+                          <CardTitle className="text-xl text-primary">
+                            {plan.name}
+                          </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-2 space-y-4">
-                          <div>
-                            <Label htmlFor={`plan-name-${plan.id}`}>
-                              Название тарифа
-                            </Label>
-                            <Input
-                              id={`plan-name-${plan.id}`}
-                              value={plan.name}
-                              onChange={(e) =>
-                                handlePlanFieldChange(
-                                  plan.id,
-                                  "name",
-                                  e.target.value,
-                                )
-                              }
-                            />
+                        <CardContent className="p-6 space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <Label>Название тарифа</Label>
+                              <Input
+                                value={plan.name}
+                                onChange={(e) =>
+                                  handlePlanFieldChange(
+                                    plan.id,
+                                    "name",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Описание тарифа</Label>
+                              <Textarea
+                                className="min-h-[40px]"
+                                value={plan.description}
+                                onChange={(e) =>
+                                  handlePlanFieldChange(
+                                    plan.id,
+                                    "description",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
                           </div>
-                          <div>
-                            <Label htmlFor={`plan-desc-${plan.id}`}>
-                              Описание тарифа
+
+                          <div className="bg-slate-50 p-4 rounded-lg border">
+                            <Label className="text-base mb-3 block">
+                              Цены (руб.)
                             </Label>
-                            <Textarea
-                              id={`plan-desc-${plan.id}`}
-                              value={plan.description}
-                              onChange={(e) =>
-                                handlePlanFieldChange(
-                                  plan.id,
-                                  "description",
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div>
-                            <Label>Цены (руб.)</Label>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <div>
-                                <Label htmlFor={`${plan.id}-monthly`}>
+                                <Label className="text-xs text-muted-foreground mb-1 block">
                                   За месяц
                                 </Label>
                                 <Input
-                                  id={`${plan.id}-monthly`}
                                   type="number"
                                   min="0"
                                   value={plan.price.monthly}
@@ -1075,11 +991,10 @@ const SettingsPage = () => {
                                 />
                               </div>
                               <div>
-                                <Label htmlFor={`${plan.id}-halfYearly`}>
+                                <Label className="text-xs text-muted-foreground mb-1 block">
                                   За 6 месяцев
                                 </Label>
                                 <Input
-                                  id={`${plan.id}-halfYearly`}
                                   type="number"
                                   min="0"
                                   value={plan.price.halfYearly}
@@ -1093,11 +1008,10 @@ const SettingsPage = () => {
                                 />
                               </div>
                               <div>
-                                <Label htmlFor={`${plan.id}-yearly`}>
+                                <Label className="text-xs text-muted-foreground mb-1 block">
                                   За 12 месяцев
                                 </Label>
                                 <Input
-                                  id={`${plan.id}-yearly`}
                                   type="number"
                                   min="0"
                                   value={plan.price.yearly}
@@ -1112,9 +1026,12 @@ const SettingsPage = () => {
                               </div>
                             </div>
                           </div>
+
                           <div>
-                            <Label>Возможности тарифа</Label>
-                            <div className="space-y-2 mt-2">
+                            <Label className="text-base mb-3 block">
+                              Возможности тарифа
+                            </Label>
+                            <div className="space-y-2">
                               {plan.features.map((feature, index) => (
                                 <div
                                   key={index}
@@ -1129,7 +1046,6 @@ const SettingsPage = () => {
                                         e.target.value,
                                       )
                                     }
-                                    className="flex-grow"
                                   />
                                   <Button
                                     variant="ghost"
@@ -1146,58 +1062,64 @@ const SettingsPage = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="mt-2"
+                              className="mt-3"
                               onClick={() => handleAddFeature(plan.id)}
                             >
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              Добавить возможность
+                              <PlusCircle className="mr-2 h-4 w-4" /> Добавить
+                              возможность
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
                     ))}
-                  <Separator className="my-6" />
-                  <div>
-                    <h4 className="font-medium text-base mb-2">
-                      Стоимость размещения платного запроса (руб.)
-                    </h4>
-                    <div>
-                      <Label htmlFor="paidRequestPrice">
-                        Цена за один запрос
-                      </Label>
-                      <Input
-                        id="paidRequestPrice"
-                        type="number"
-                        min="0"
-                        value={priceConfig.paidRequestPrice}
-                        onChange={handlePaidRequestPriceChange}
-                        disabled={updatePricingMutation.isPending}
-                        className="max-w-xs"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Эта цена будет взиматься с заказчика за публикацию
-                        одного платного запроса.
-                      </p>
-                    </div>
-                  </div>
+
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-6">
+                      <h4 className="font-semibold text-lg mb-2">
+                        Стоимость разового размещения запроса
+                      </h4>
+                      <div className="flex items-center gap-4">
+                        <div className="w-48">
+                          <Label>Цена (руб.)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={priceConfig.paidRequestPrice}
+                            onChange={(e) =>
+                              setPriceConfig({
+                                ...priceConfig,
+                                paidRequestPrice: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            disabled={updatePricingMutation.isPending}
+                          />
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-4">
+                          Взимается с заказчика за публикацию.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <Button
-                    variant="destructive"
+                    size="lg"
                     onClick={handleSavePrices}
                     disabled={updatePricingMutation.isPending}
-                    className="mt-6"
                   >
                     {updatePricingMutation.isPending
                       ? "Сохранение..."
-                      : "Сохранить все тарифы"}
+                      : "Сохранить тарифы"}
                   </Button>
                 </div>
               )}
             </CardContent>
-          </Card> */}
-        </CardContent>
-      </Card>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      {/* Dialogs - Kept as is, using local state */}
+      {/* --- DIALOGS --- */}
+
+      {/* Category Dialog */}
       <Dialog
         open={isCategoryDialogOpen}
         onOpenChange={setIsCategoryDialogOpen}
@@ -1207,54 +1129,42 @@ const SettingsPage = () => {
             <DialogTitle>
               {editingCategory
                 ? "Редактировать категорию"
-                : "Добавить новую категорию"}
+                : "Добавить категорию"}
             </DialogTitle>
-            <DialogDescription>
-              {editingCategory
-                ? "Измените название или иконку категории."
-                : "Введите название и выберите иконку для новой категории."}
-            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="categoryName" className="text-right">
-                Название
-              </Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Название</Label>
               <Input
-                id="categoryName"
                 value={categoryFormData.name}
                 onChange={(e) =>
-                  handleCategoryFormChange("name", e.target.value)
+                  setCategoryFormData((p) => ({ ...p, name: e.target.value }))
                 }
-                className="col-span-3"
-                placeholder="Например, Кейтеринг"
+                placeholder="Кейтеринг"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="categoryIcon" className="text-right">
-                Иконка (Lucide)
-              </Label>
-              <div className="col-span-3 flex items-center gap-2">
+            <div className="space-y-2">
+              <Label>Иконка (Lucide)</Label>
+              <div className="flex items-center gap-3">
                 <Select
                   value={categoryFormData.icon}
-                  onValueChange={(value) =>
-                    handleCategoryFormChange("icon", value)
+                  onValueChange={(val) =>
+                    setCategoryFormData((p) => ({ ...p, icon: val }))
                   }
                 >
                   <SelectTrigger className="flex-grow">
-                    <SelectValue placeholder="Выберите иконку" />
+                    <SelectValue placeholder="Иконка" />
                   </SelectTrigger>
                   <SelectContent>
                     <ScrollArea className="h-48">
                       {Object.keys(LucideIcons)
                         .filter(
-                          (key) =>
-                            typeof (LucideIcons as any)[key] === "object",
+                          (k) => typeof (LucideIcons as any)[k] === "object",
                         )
                         .map((iconName) => (
                           <SelectItem key={iconName} value={iconName}>
                             <div className="flex items-center gap-2">
-                              {renderIcon(iconName, { className: "h-4 w-4" })}
+                              {renderIcon(iconName, { className: "h-4 w-4" })}{" "}
                               {iconName}
                             </div>
                           </SelectItem>
@@ -1267,91 +1177,75 @@ const SettingsPage = () => {
                 </div>
               </div>
             </div>
-            {categoryFormData.icon &&
-              !(LucideIcons as any)[categoryFormData.icon] && (
-                <p className="col-span-4 text-xs text-destructive text-center">
-                  Введено неверное имя иконки Lucide. Выберите из списка.
-                </p>
-              )}
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Отмена
-              </Button>
-            </DialogClose>
             <Button
-              type="button"
-              variant="destructive"
-              onClick={handleSaveCategory}
+              variant="outline"
+              onClick={() => setIsCategoryDialogOpen(false)}
             >
-              {editingCategory ? "Сохранить изменения" : "Добавить категорию"}
+              Отмена
+            </Button>
+            <Button onClick={handleSaveCategory}>
+              {editingCategory ? "Сохранить" : "Добавить"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* SEO Dialog */}
       <Dialog open={isSeoDialogOpen} onOpenChange={setIsSeoDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
-              {editingSeo ? "Редактировать SEO" : "Добавить SEO для страницы"}
+              {editingSeo ? "Редактировать SEO" : "Добавить SEO"}
             </DialogTitle>
-            <DialogDescription>
-              Укажите мета-теги для конкретной страницы.
-            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="seoPath">Путь страницы (URL)</Label>
+              <Label>Путь страницы (URL)</Label>
               <Input
-                id="seoPath"
                 value={seoFormData.path}
-                onChange={(e) => handleSeoFormChange("path", e.target.value)}
-                placeholder="например, /about или /partnership"
-                disabled={isEditingSeoDialog}
+                onChange={(e) =>
+                  setSeoFormData((p) => ({ ...p, path: e.target.value }))
+                }
+                placeholder="/about"
+                disabled={!!editingSeo}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="seoTitle">Заголовок (Title)</Label>
+              <Label>Заголовок (Title)</Label>
               <Input
-                id="seoTitle"
                 value={seoFormData.title}
-                onChange={(e) => handleSeoFormChange("title", e.target.value)}
-                maxLength={60}
+                onChange={(e) =>
+                  setSeoFormData((p) => ({ ...p, title: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="seoDescription">Описание (Description)</Label>
+              <Label>Описание (Description)</Label>
               <Textarea
-                id="seoDescription"
                 value={seoFormData.description}
                 onChange={(e) =>
-                  handleSeoFormChange("description", e.target.value)
+                  setSeoFormData((p) => ({ ...p, description: e.target.value }))
                 }
-                maxLength={160}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="seoKeywords">
-                Ключевые слова (через запятую)
-              </Label>
+              <Label>Ключевые слова</Label>
               <Input
-                id="seoKeywords"
                 value={seoFormData.keywords}
                 onChange={(e) =>
-                  handleSeoFormChange("keywords", e.target.value)
+                  setSeoFormData((p) => ({ ...p, keywords: e.target.value }))
                 }
+                placeholder="через запятую"
               />
             </div>
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Отмена
-              </Button>
-            </DialogClose>
-            <Button type="button" variant="destructive" onClick={handleSaveSeo}>
+            <Button variant="outline" onClick={() => setIsSeoDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleSaveSeo}>
               {editingSeo ? "Сохранить" : "Добавить"}
             </Button>
           </DialogFooter>
@@ -1359,6 +1253,4 @@ const SettingsPage = () => {
       </Dialog>
     </div>
   );
-};
-
-export default SettingsPage;
+}
