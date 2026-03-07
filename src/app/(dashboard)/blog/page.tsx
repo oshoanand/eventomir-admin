@@ -442,7 +442,7 @@ export default function AdminBlogList() {
                         size="icon"
                         title="Редактировать"
                       >
-                        <Link href={`/admin/blog/edit/${article.id}`}>
+                        <Link href={`/blog/edit/${article.id}`}>
                           <Edit className="h-4 w-4" />
                         </Link>
                       </Button>

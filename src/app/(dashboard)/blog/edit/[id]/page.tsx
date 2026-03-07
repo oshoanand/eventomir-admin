@@ -33,7 +33,7 @@ export default function AdminEditArticlePage() {
     <div className="container py-10 max-w-6xl">
       <div className="mb-6 flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link href="/admin/blog">
+          <Link href="/blog">
             <ArrowLeft className="mr-2 h-4 w-4" /> Назад к списку
           </Link>
         </Button>
@@ -53,7 +53,7 @@ export default function AdminEditArticlePage() {
             {
               onSuccess: () => {
                 toast({ title: "Изменения сохранены!" });
-                router.push("/admin/blog");
+                router.push("/blog");
               },
               onError: () =>
                 toast({ variant: "destructive", title: "Ошибка сохранения" }),
