@@ -21,9 +21,12 @@ import {
   Headset,
   Paperclip,
   CreditCard,
-  Users, // Icon for User Management
+  Users,
   Shield,
   Square,
+  Calendar,
+  Handshake,
+  Ticket,
 } from "lucide-react";
 
 export function SidebarNav() {
@@ -53,10 +56,10 @@ export function SidebarNav() {
                 href: "/users/manage",
                 icon: Users,
                 label: "Управление пользователями",
-              }, // CRUD Page
+              },
               {
                 href: "/bookings",
-                icon: Square,
+                icon: Ticket,
                 label: "Бронирование",
               },
             ],
@@ -68,7 +71,7 @@ export function SidebarNav() {
       items: [
         { href: "/users/performers", icon: User, label: "Исполнители" },
         { href: "/users/customers", icon: User, label: "Заказчик" },
-        { href: "/partners", icon: User, label: "Партнеры" },
+        { href: "/partners", icon: Handshake, label: "Партнеры" },
       ],
     },
     {
@@ -76,6 +79,7 @@ export function SidebarNav() {
       items: [
         { href: "/settings", icon: Settings, label: "Настройки" },
         { href: "/pricing", icon: CreditCard, label: "Тарифы" },
+        { href: "/events", icon: Calendar, label: "Ближайшие" },
       ],
     },
     {
