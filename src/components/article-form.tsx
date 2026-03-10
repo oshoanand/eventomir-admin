@@ -16,11 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Image as ImageIcon } from "lucide-react";
 
 interface ArticleFormProps {
   initialData?: Article; // Optional for Edit mode
-  onSubmit: (data: CreateArticleDTO) => void;
+  onSubmit: (data: FormData) => void; // CHANGED: Must submit FormData for multer
   isSubmitting: boolean;
 }
 
@@ -66,12 +66,12 @@ const slugify = (text: string) => {
   return text
     .toLowerCase()
     .split("")
-    .map((char) => ruMap[char] || char) // Map Cyrillic or keep original
+    .map((char) => ruMap[char] || char)
     .join("")
-    .replace(/[^\w\-]+/g, "") // Remove non-word chars (except dashes)
-    .replace(/\-\-+/g, "-") // Replace multiple dashes with single
-    .replace(/^-+/, "") // Trim dash from start
-    .replace(/-+$/, ""); // Trim dash from end
+    .replace(/[^\w\-]+/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
 };
 
 export default function ArticleForm({
@@ -84,7 +84,7 @@ export default function ArticleForm({
     title: initialData?.title || "",
     slug: initialData?.slug || "",
     content: initialData?.content || "",
-    media_url: initialData?.media_url || "",
+    media_url: initialData?.media_url || "", // Holds external link OR existing DB link
     media_type: initialData?.media_type || "image",
     image_alt_text: initialData?.image_alt_text || "",
     isActive: initialData?.isActive || false,
@@ -93,13 +93,16 @@ export default function ArticleForm({
     keywords: initialData?.keywords || "",
   });
 
-  // Track if the slug has been manually edited or if we are in edit mode
-  // If initialData exists, we assume the slug is "touched" so we don't accidentally change SEO links
+  // NEW: Track physical file for upload
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initialData?.media_url || null,
+  );
+
   const [isSlugTouched, setIsSlugTouched] = useState(!!initialData?.slug);
 
   // Effect: Auto-generate slug from title
   useEffect(() => {
-    // Only update if the user hasn't manually touched the slug field AND we have a title
     if (!isSlugTouched && formData.title) {
       const autoSlug = slugify(formData.title);
       setFormData((prev) => ({ ...prev, slug: autoSlug }));
@@ -111,8 +114,45 @@ export default function ArticleForm({
   };
 
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsSlugTouched(true); // Mark as manually edited
+    setIsSlugTouched(true);
     handleChange("slug", e.target.value);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      // Create a local preview of the uploaded image
+      setPreviewUrl(URL.createObjectURL(file));
+      // Reset external URL if a file is chosen
+      handleChange("media_url", "");
+    }
+  };
+
+  const handleFormSubmit = () => {
+    // 1. Create FormData object
+    const payload = new FormData();
+
+    // 2. Append all text fields
+    payload.append("title", formData.title);
+    payload.append("content", formData.content);
+    payload.append("slug", formData.slug);
+    payload.append("media_type", formData.media_type || "image");
+    payload.append("image_alt_text", formData.image_alt_text || "");
+    payload.append("meta_title", formData.meta_title || "");
+    payload.append("meta_description", formData.meta_description || "");
+    payload.append("keywords", formData.keywords || "");
+    payload.append("isActive", String(formData.isActive));
+
+    // 3. Handle Media (File vs External Link)
+    if (selectedFile) {
+      payload.append("media", selectedFile); // Matches backend `upload.single("media")`
+    } else if (formData.media_url) {
+      payload.append("media_url", formData.media_url); // Pass string if it's an external link
+    }
+
+    // 4. Send to parent
+    onSubmit(payload);
   };
 
   return (
@@ -125,7 +165,9 @@ export default function ArticleForm({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Заголовок</Label>
+              <Label>
+                Заголовок <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={formData.title}
                 onChange={(e) => handleChange("title", e.target.value)}
@@ -150,7 +192,9 @@ export default function ArticleForm({
             </div>
 
             <div className="grid gap-2">
-              <Label>Текст статьи</Label>
+              <Label>
+                Текст статьи <span className="text-destructive">*</span>
+              </Label>
               <div className="min-h-[400px]">
                 <TiptapEditor
                   content={formData.content}
@@ -164,7 +208,7 @@ export default function ArticleForm({
 
       {/* Right Column: Settings, Media, SEO */}
       <div className="space-y-6">
-        {/* Publication Status */}
+        {/* Publication Status & Action */}
         <Card>
           <CardHeader>
             <CardTitle>Публикация</CardTitle>
@@ -180,9 +224,10 @@ export default function ArticleForm({
                 Опубликовать на сайте
               </Label>
             </div>
+
             <Button
-              onClick={() => onSubmit(formData)}
-              disabled={isSubmitting}
+              onClick={handleFormSubmit}
+              disabled={isSubmitting || !formData.title || !formData.content}
               className="w-full"
               size="lg"
             >
@@ -196,14 +241,14 @@ export default function ArticleForm({
           </CardContent>
         </Card>
 
-        {/* Media Settings */}
+        {/* Media Settings (File Upload or Link) */}
         <Card>
           <CardHeader>
-            <CardTitle>Медиа</CardTitle>
+            <CardTitle>Медиа обложка</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Тип медиа</Label>
+              <Label>Тип загрузки</Label>
               <Select
                 value={formData.media_type}
                 onValueChange={(v: any) => handleChange("media_type", v)}
@@ -212,39 +257,63 @@ export default function ArticleForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="image">Изображение</SelectItem>
-                  <SelectItem value="video">Видео</SelectItem>
-                  <SelectItem value="link">Внешняя ссылка</SelectItem>
+                  <SelectItem value="image">
+                    Загрузить файл (Картинка)
+                  </SelectItem>
+                  <SelectItem value="link">Внешняя ссылка (URL)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="grid gap-2">
-              <Label>Ссылка (URL)</Label>
-              <Input
-                value={formData.media_url || ""}
-                onChange={(e) => handleChange("media_url", e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+            {/* Toggle Input based on Media Type */}
+            {formData.media_type === "image" ? (
+              <div className="grid gap-2">
+                <Label>Файл изображения</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <Label>Внешняя ссылка (URL)</Label>
+                <Input
+                  value={formData.media_url || ""}
+                  onChange={(e) => {
+                    handleChange("media_url", e.target.value);
+                    setPreviewUrl(e.target.value);
+                    setSelectedFile(null); // Clear file if switching to URL
+                  }}
+                  placeholder="https://..."
+                />
+              </div>
+            )}
 
             <div className="grid gap-2">
-              <Label>Alt текст (SEO)</Label>
+              <Label>Alt текст (SEO для картинок)</Label>
               <Input
                 value={formData.image_alt_text || ""}
                 onChange={(e) => handleChange("image_alt_text", e.target.value)}
-                placeholder="Описание картинки"
+                placeholder="Краткое описание картинки"
               />
             </div>
 
-            {/* Preview Image */}
-            {formData.media_url && formData.media_type === "image" && (
-              <div className="mt-2 relative rounded-md overflow-hidden border aspect-video bg-muted">
+            {/* Preview Area */}
+            {previewUrl && (
+              <div className="mt-2 relative rounded-md overflow-hidden border aspect-video bg-muted flex items-center justify-center">
                 <img
-                  src={formData.media_url}
+                  src={previewUrl}
                   alt="Preview"
                   className="w-full h-full object-cover"
+                  onError={() => setPreviewUrl(null)} // Hide if invalid link
                 />
+              </div>
+            )}
+            {!previewUrl && (
+              <div className="mt-2 rounded-md border border-dashed aspect-video bg-muted/30 flex flex-col items-center justify-center text-muted-foreground">
+                <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
+                <span className="text-xs">Нет обложки</span>
               </div>
             )}
           </CardContent>
@@ -284,11 +353,11 @@ export default function ArticleForm({
             </div>
 
             <div className="grid gap-2">
-              <Label>Keywords</Label>
+              <Label>Keywords (Ключевые слова)</Label>
               <Input
                 value={formData.keywords || ""}
                 onChange={(e) => handleChange("keywords", e.target.value)}
-                placeholder="через, запятую"
+                placeholder="ивент, организация, праздник..."
               />
             </div>
           </CardContent>
