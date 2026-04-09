@@ -20,41 +20,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import {
-  Send,
-  Smartphone,
-  Loader2,
-  BellRing,
-  History,
-  Lock,
-  Unlock,
-} from "lucide-react";
-import { toast } from "sonner"; // Assuming you use Sonner or similar toast
-// import { NotificationHistory } from "@/components/notification-history";
+import { Send, Loader2, BellRing, History, Lock, Unlock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // Make sure this matches your toast import
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
-// 1. CONFIGURATION MAPPING
+// 1. EVENTOMIR CONFIGURATION MAPPING
 const TOPIC_CONFIG = {
-  collector:
-    process.env.NEXT_PUBLIC_COLLECTOR_FCM_TOPIC ||
-    "garbagecollector_collector_topic",
-  visitor:
-    process.env.NEXT_PUBLIC_VISITOR_FCM_TOPIC ||
-    "garbagecollector_visitor_topic",
-  token_group:
-    process.env.NEXT_PUBLIC_TOKEN_FCM_TOPIC || "token_generator_topic",
-  user: "", // User requires manual input
+  customers:
+    process.env.NEXT_PUBLIC_CUSTOMER_FCM_TOPIC || "eventomir_customer_topic",
+  performers:
+    process.env.NEXT_PUBLIC_PERFORMER_FCM_TOPIC || "eventomir_performer_topic",
+  all_users:
+    process.env.NEXT_PUBLIC_ALL_USERS_FCM_TOPIC || "eventomir_all_users_topic",
+  specific_user: "", // Requires manual input (e.g., user_9898989898)
 };
 
-type SelectionType = "collector" | "visitor" | "token_group" | "user";
+type SelectionType = "customers" | "performers" | "all_users" | "specific_user";
 
 export default function NotificationsPage() {
+  const { data: session } = useSession();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [targetType, setTargetType] = useState<SelectionType>("collector");
+  const [targetType, setTargetType] = useState<SelectionType>("customers");
 
   // Form State
   const [formData, setFormData] = useState({
-    target: "",
+    target: TOPIC_CONFIG.customers,
     title: "",
     body: "",
   });
@@ -62,35 +54,43 @@ export default function NotificationsPage() {
   const handleTypeChange = (value: SelectionType) => {
     setTargetType(value);
 
-    if (value === "user") {
-      // If User, clear target for manual entry
+    if (value === "specific_user") {
+      // Clear target for manual entry
       setFormData((prev) => ({ ...prev, target: "" }));
     } else {
-      // If Group, auto-populate from Environment Variables
+      // Auto-populate from predefined topics
       setFormData((prev) => ({ ...prev, target: TOPIC_CONFIG[value] }));
     }
   };
 
   const handleSend = async () => {
     if (!formData.title || !formData.body || !formData.target) {
-      toast.error("Please fill in all fields");
+      toast({
+        title: "Ошибка",
+        description: "Пожалуйста, заполните все поля",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // 4. Determine generic API type based on specific UI selection
-      // const apiType = targetType === "user" ? "token" : "topic";
+      // Smart check: If target is extremely long, it's an FCM Token. Otherwise, it's a Topic.
+      const isToken =
+        targetType === "specific_user" && formData.target.length > 50;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/notifications/send`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8800"}/api/admin/send-notification`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.accessToken || ""}`, // Assuming you use JWT
+          },
           body: JSON.stringify({
-            type: "topic", // 'topic' or 'token'
-            target: formData.target, // topic name or user fcm token
+            type: isToken ? "token" : "topic",
+            target: formData.target,
             title: formData.title,
             body: formData.body,
           }),
@@ -98,18 +98,32 @@ export default function NotificationsPage() {
       );
 
       if (response.ok) {
-        toast.success("Notification sent successfully!");
+        toast({
+          title: "Успешно!",
+          description: "Уведомление успешно отправлено аудитории.",
+          variant: "success",
+        });
+
         // Reset form but keep the current target logic intact
         setFormData((prev) => ({ ...prev, title: "", body: "" }));
-        if (targetType === "user") {
+        if (targetType === "specific_user") {
           setFormData((prev) => ({ ...prev, target: "" }));
         }
       } else {
-        toast.error("Failed to send notification");
+        const errorData = await response.json();
+        toast({
+          title: "Ошибка отправки",
+          description: errorData.message || "Не удалось отправить уведомление",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error(error);
-      toast.error("An error occurred");
+      toast({
+        title: "Системная ошибка",
+        description: "Произошла ошибка при соединении с сервером",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -120,16 +134,21 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            Push Notifications{" "}
+            Push Уведомления
           </h2>
           <p className="text-muted-foreground">
-            Send FCM messages to specific users or broadcast via topics.
+            Отправляйте FCM-сообщения конкретным пользователям или группам
+            (топикам).
           </p>
         </div>
-        <Button variant="outline" className="border border-[#f97415]" asChild>
+        <Button
+          variant="outline"
+          className="border-primary text-primary hover:bg-primary/10"
+          asChild
+        >
           <Link href="/notifications/history">
             <History className="mr-2 h-4 w-4" />
-            View History
+            История
           </Link>
         </Button>
       </div>
@@ -138,27 +157,33 @@ export default function NotificationsPage() {
         {/* --- Left Column: Input Form --- */}
         <Card className="col-span-4 border-none shadow-md">
           <CardHeader>
-            <CardTitle>Compose Message</CardTitle>
+            <CardTitle>Создать сообщение</CardTitle>
             <CardDescription>
-              Configure the details of your push notification.
+              Настройте детали вашего push-уведомления.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="type">Target Audience</Label>
+                <Label htmlFor="type">Целевая аудитория</Label>
                 <Select
                   value={targetType}
                   onValueChange={(val: SelectionType) => handleTypeChange(val)}
                 >
                   <SelectTrigger id="type">
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Выберите аудиторию" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="collector">Collector Group</SelectItem>
-                    <SelectItem value="visitor">Visitor Group</SelectItem>
-                    <SelectItem value="token_group">Token Group</SelectItem>
-                    <SelectItem value="user">Specific User (Token)</SelectItem>
+                    <SelectItem value="customers">
+                      Клиенты (Customers)
+                    </SelectItem>
+                    <SelectItem value="performers">
+                      Исполнители (Performers)
+                    </SelectItem>
+                    <SelectItem value="all_users">Все пользователи</SelectItem>
+                    <SelectItem value="specific_user">
+                      Конкретный пользователь
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -166,12 +191,11 @@ export default function NotificationsPage() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="target">
-                    {targetType === "user"
-                      ? "User FCM Token"
-                      : "Topic Name (Auto-Filled)"}
+                    {targetType === "specific_user"
+                      ? "Топик (user_123) или Токен"
+                      : "Имя топика (Автоматически)"}
                   </Label>
-                  {/* Visual indicator for Read Only vs Editable */}
-                  {targetType !== "user" ? (
+                  {targetType !== "specific_user" ? (
                     <Lock className="w-3 h-3 text-gray-400" />
                   ) : (
                     <Unlock className="w-3 h-3 text-gray-400" />
@@ -180,17 +204,16 @@ export default function NotificationsPage() {
                 <Input
                   id="target"
                   placeholder={
-                    targetType === "user"
-                      ? "Paste FCM Token here..."
-                      : "Topic name from .env"
+                    targetType === "specific_user"
+                      ? "user_9898989898 или FCM Токен..."
+                      : "Топик из .env"
                   }
                   value={formData.target}
-                  // Disable editing if it's a group topic to prevent errors
-                  readOnly={targetType !== "user"}
-                  disabled={targetType !== "user"}
+                  readOnly={targetType !== "specific_user"}
+                  disabled={targetType !== "specific_user"}
                   className={
-                    targetType !== "user"
-                      ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                    targetType !== "specific_user"
+                      ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800"
                       : ""
                   }
                   onChange={(e) =>
@@ -201,10 +224,10 @@ export default function NotificationsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Notification Title</Label>
+              <Label htmlFor="title">Заголовок уведомления</Label>
               <Input
                 id="title"
-                placeholder="e.g., Special Offer Inside!"
+                placeholder="например: Специальное предложение!"
                 value={formData.title}
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
@@ -213,11 +236,11 @@ export default function NotificationsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="body">Message Body</Label>
+              <Label htmlFor="body">Текст сообщения</Label>
               <Textarea
                 id="body"
-                placeholder="Type your message here..."
-                className="min-h-[100px]"
+                placeholder="Введите текст уведомления здесь..."
+                className="min-h-[100px] resize-none"
                 value={formData.body}
                 onChange={(e) =>
                   setFormData({ ...formData, body: e.target.value })
@@ -225,21 +248,21 @@ export default function NotificationsPage() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end">
+          <CardFooter className="flex justify-end bg-gray-50/50 dark:bg-gray-900/50 py-4 rounded-b-xl">
             <Button
               onClick={handleSend}
               disabled={isLoading}
-              className="w-full md:w-auto"
+              className="w-full md:w-auto font-semibold"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  Отправка...
                 </>
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Send Notification
+                  Отправить
                 </>
               )}
             </Button>
@@ -251,10 +274,10 @@ export default function NotificationsPage() {
           <Card className="h-full bg-slate-50/50 dark:bg-slate-900/50 border-dashed">
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                Preview
+                Предпросмотр
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-center pt-8">
+            <CardContent className="flex items-center justify-center pt-4 pb-8">
               {/* Mobile Phone Simulation */}
               <div className="relative mx-auto border-gray-800 dark:border-gray-800 bg-gray-800 border-[14px] rounded-[2.5rem] h-[500px] w-[300px] shadow-xl">
                 <div className="w-[148px] h-[18px] bg-gray-800 top-0 rounded-b-[1rem] left-1/2 -translate-x-1/2 absolute"></div>
@@ -275,9 +298,9 @@ export default function NotificationsPage() {
                   </div>
 
                   {/* Wallpaper / Home Screen */}
-                  <div className="p-4 pt-10 space-y-4">
+                  <div className="p-4 pt-10 space-y-4 h-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
                     {/* The Notification Card */}
-                    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-500">
                       <div className="flex items-start gap-3">
                         <div className="bg-primary/10 p-2 rounded-xl">
                           <BellRing className="h-5 w-5 text-primary" />
@@ -285,18 +308,18 @@ export default function NotificationsPage() {
                         <div className="flex-1 space-y-1">
                           <div className="flex justify-between items-start">
                             <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                              Zepo App
+                              Eventomir
                             </span>
                             <span className="text-[10px] text-gray-400">
-                              Now
+                              Сейчас
                             </span>
                           </div>
-                          <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                            {formData.title || "Notification Title"}
+                          <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-tight">
+                            {formData.title || "Заголовок уведомления"}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug break-words">
                             {formData.body ||
-                              "The notification body text will appear here on the user's device."}
+                              "Текст сообщения будет отображаться здесь на устройстве пользователя."}
                           </p>
                         </div>
                       </div>

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Handshake,
   Info,
+  UserPlus, // 🚨 Added UserPlus icon for moderation events
 } from "lucide-react";
 import { useNotification } from "@/components/providers/NotificationProvider";
 import { NotificationItem } from "@/types/notification";
@@ -67,6 +68,19 @@ const NotificationBell: React.FC = () => {
   // --- Helper to get UI configuration based on Notification Type ---
   const getNotificationConfig = (notif: any) => {
     switch (notif.type) {
+      // 🚨 ADDED: MODERATION_UPDATE for new user registrations
+      case "MODERATION_UPDATE":
+        return {
+          icon: <UserPlus size={16} />,
+          colorClass: "bg-purple-100 text-purple-600",
+          title: notif.title || "Новый пользователь",
+          link: notif.data?.url || notif.link || "/users", // Deep link to the users page
+          body: (
+            <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
+              {notif.message || "Пользователь ожидает модерации."}
+            </p>
+          ),
+        };
       case "TOKEN":
         return {
           icon: <Package size={16} />,
@@ -109,7 +123,7 @@ const NotificationBell: React.FC = () => {
           icon: <Handshake size={16} />,
           colorClass: "bg-green-100 text-emerald-600",
           title: "Новый партнер",
-          link: notif.link || "/partners",
+          link: notif.data?.url || notif.link || "/partners",
           body: (
             <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
               {notif.message}
@@ -121,8 +135,8 @@ const NotificationBell: React.FC = () => {
         return {
           icon: <Info size={16} />,
           colorClass: "bg-slate-100 text-slate-600",
-          title: "Системное уведомление",
-          link: notif.link || undefined,
+          title: notif.title || "Системное уведомление",
+          link: notif.data?.url || notif.link || undefined,
           body: (
             <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
               {notif.message || "У вас новое уведомление"}
@@ -190,7 +204,7 @@ const NotificationBell: React.FC = () => {
                             {config.title}
                           </p>
                           <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
-                            {formatTime((notif as any).createdAt)}
+                            {formatTime((notif as any).createdAt || new Date())}
                           </span>
                         </div>
                         {config.body}
