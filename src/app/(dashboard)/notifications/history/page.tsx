@@ -15,9 +15,11 @@ export default function HistoryPage() {
           </Link>
         </Button>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sent History</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            История отправки
+          </h2>
           <p className="text-muted-foreground">
-            View logs of all previous push notifications.
+            Просматривайте логи всех ранее отправленных push-уведомлений.
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -11,10 +12,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+// 🚨 1. Import your API client
+import { apiRequest } from "@/utils/api-client";
 
 interface NotificationLog {
-  id: string; // CHANGED: Prisma uses 'id', Mongo used '_id'
+  id: string;
   title: string;
   body: string;
   targetType: "topic" | "token";
@@ -26,17 +32,23 @@ interface NotificationLog {
 export function NotificationHistory() {
   const [logs, setLogs] = useState<NotificationLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Function to refresh data
   const fetchHistory = async () => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/notifications/history`,
-      );
-      const data = await res.json();
+      // 🚨 2. Use apiRequest (Automatically handles Auth Token via interceptor)
+      const data = await apiRequest<NotificationLog[]>({
+        url: "/api/admin/notifications/history",
+        method: "GET",
+      });
       setLogs(data);
     } catch (error) {
-      console.error("Failed to load history");
+      console.error("Failed to load history", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить историю уведомлений.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -44,21 +56,21 @@ export function NotificationHistory() {
 
   useEffect(() => {
     fetchHistory();
-  }, []); // Run once on mount
+  }, []);
 
   return (
     <Card className="mt-6">
       <CardHeader>
-        <CardTitle>Sent History</CardTitle>
+        <CardTitle>История отправленных сообщений</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Status</TableHead>
-              <TableHead>Message</TableHead>
-              <TableHead>Target</TableHead>
-              <TableHead className="text-right">Sent At</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Сообщение</TableHead>
+              <TableHead>Цель (Target)</TableHead>
+              <TableHead className="text-right">Время отправки</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -74,7 +86,7 @@ export function NotificationHistory() {
                   colSpan={4}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No notifications sent yet.
+                  Уведомления еще не отправлялись.
                 </TableCell>
               </TableRow>
             ) : (
@@ -86,11 +98,11 @@ export function NotificationHistory() {
                         variant="outline"
                         className="bg-green-50 text-green-700 border-green-200 gap-1"
                       >
-                        <CheckCircle2 className="h-3 w-3" /> Sent
+                        <CheckCircle2 className="h-3 w-3" /> Успешно
                       </Badge>
                     ) : (
                       <Badge variant="destructive" className="gap-1">
-                        <XCircle className="h-3 w-3" /> Failed
+                        <XCircle className="h-3 w-3" /> Ошибка
                       </Badge>
                     )}
                   </TableCell>
@@ -122,7 +134,9 @@ export function NotificationHistory() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground text-sm">
-                    {format(new Date(log.sentAt), "MMM d, h:mm a")}
+                    {format(new Date(log.sentAt), "d MMM yyyy, HH:mm", {
+                      locale: ru,
+                    })}
                   </TableCell>
                 </TableRow>
               ))

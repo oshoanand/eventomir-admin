@@ -21,11 +21,13 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Send, Loader2, BellRing, History, Lock, Unlock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // Make sure this matches your toast import
+import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 
-// 1. EVENTOMIR CONFIGURATION MAPPING
+// 🚨 1. Import the robust API client and Error class
+import { apiRequest, ApiError } from "@/utils/api-client";
+
+// 2. EVENTOMIR CONFIGURATION MAPPING
 const TOPIC_CONFIG = {
   customers:
     process.env.NEXT_PUBLIC_CUSTOMER_FCM_TOPIC || "eventomir_customer_topic",
@@ -39,7 +41,6 @@ const TOPIC_CONFIG = {
 type SelectionType = "customers" | "performers" | "all_users" | "specific_user";
 
 export default function NotificationsPage() {
-  const { data: session } = useSession();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [targetType, setTargetType] = useState<SelectionType>("customers");
@@ -80,50 +81,47 @@ export default function NotificationsPage() {
       const isToken =
         targetType === "specific_user" && formData.target.length > 50;
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8800"}/api/admin/send-notification`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.user?.accessToken || ""}`, // Assuming you use JWT
-          },
-          body: JSON.stringify({
-            type: isToken ? "token" : "topic",
-            target: formData.target,
-            title: formData.title,
-            body: formData.body,
-          }),
+      // 🚨 3. Use your custom apiRequest function
+      await apiRequest({
+        url: "/api/admin/notifications/send",
+        method: "POST",
+        data: {
+          type: isToken ? "token" : "topic",
+          target: formData.target,
+          title: formData.title,
+          body: formData.body,
         },
-      );
+      });
 
-      if (response.ok) {
-        toast({
-          title: "Успешно!",
-          description: "Уведомление успешно отправлено аудитории.",
-          variant: "success",
-        });
+      // If no error is thrown, the request was successful
+      toast({
+        title: "Успешно!",
+        description: "Уведомление успешно отправлено.",
+        variant: "success",
+      });
 
-        // Reset form but keep the current target logic intact
-        setFormData((prev) => ({ ...prev, title: "", body: "" }));
-        if (targetType === "specific_user") {
-          setFormData((prev) => ({ ...prev, target: "" }));
-        }
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Ошибка отправки",
-          description: errorData.message || "Не удалось отправить уведомление",
-          variant: "destructive",
-        });
+      // Reset form but keep the current target logic intact
+      setFormData((prev) => ({ ...prev, title: "", body: "" }));
+      if (targetType === "specific_user") {
+        setFormData((prev) => ({ ...prev, target: "" }));
       }
     } catch (error) {
       console.error(error);
-      toast({
-        title: "Системная ошибка",
-        description: "Произошла ошибка при соединении с сервером",
-        variant: "destructive",
-      });
+
+      // 🚨 4. Handle custom ApiError gracefully
+      if (error instanceof ApiError) {
+        toast({
+          title: "Ошибка отправки",
+          description: error.message || "Не удалось отправить уведомление",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Системная ошибка",
+          description: "Произошла ошибка при соединении с сервером",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
