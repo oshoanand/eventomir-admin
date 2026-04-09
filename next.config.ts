@@ -1,4 +1,4 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -10,23 +10,31 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
+      // 1. Production MinIO Server (via Nginx SSL)
       {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
+        protocol: "https",
+        hostname: "s3.eventomir.ru",
+        port: "",
+        pathname: "/**", // Allow all buckets and files
       },
+      // 2. Localhost MinIO (for local development)
       {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
+        pathname: "/**",
       },
+      // 3. 127.0.0.1 MinIO (Alternative local development)
       {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
+        protocol: "http",
+        hostname: "127.0.0.1",
+        port: "9000",
+        pathname: "/**",
+      },
+      // 4. Google Avatars
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
       },
     ],
   },
