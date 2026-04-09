@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -39,6 +40,7 @@ import {
   MessageSquare,
   UserCheck,
   Trash2,
+  Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -276,9 +278,10 @@ export default function PerformersTable() {
                           <MoreHorizontal className="h-4 w-4 text-gray-500" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem
                           onClick={() => handleStartChat(performer.id)}
+                          className="cursor-pointer"
                         >
                           <MessageSquare className="mr-2 h-4 w-4" />
                           Написать сообщение
@@ -288,16 +291,26 @@ export default function PerformersTable() {
 
                         <DropdownMenuItem
                           onClick={() => handleOpenEdit(performer)}
+                          className="cursor-pointer"
                         >
                           <UserCheck className="mr-2 h-4 w-4" />
                           Изменить статус
                         </DropdownMenuItem>
 
-                        <DropdownMenuItem>Детальный просмотр</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+
+                        {/* --- NEW VIEW DETAILS LINK --- */}
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                          <Link href={`/users/performers/view/${performer.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Детальный просмотр
+                          </Link>
+                        </DropdownMenuItem>
+                        {/* --------------------------- */}
 
                         <DropdownMenuSeparator />
 
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                           <Trash2 className="mr-2 h-4 w-4" />
                           Удалить
                         </DropdownMenuItem>
