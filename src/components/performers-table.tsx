@@ -63,7 +63,7 @@ import {
   useUpdateModerationMutation,
   Performer,
 } from "@/data/use-performers";
-import { useSocket } from "@/components/providers/socket-provider";
+import { useSocket } from "@/components/providers/SocketProvider";
 
 export default function PerformersTable() {
   const { toast } = useToast();

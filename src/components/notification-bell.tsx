@@ -10,7 +10,7 @@ import {
   Handshake,
   Info,
 } from "lucide-react";
-import { useNotification } from "@/context/NotificationContext";
+import { useNotification } from "@/components/providers/NotificationProvider";
 import { NotificationItem } from "@/types/notification";
 
 const NotificationBell: React.FC = () => {

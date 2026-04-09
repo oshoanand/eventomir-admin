@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useSocket } from "@/components/providers/socket-provider";
-import { apiRequest } from "@/utils/api-client"; // Adjust path to your API helper
+import { useSocket } from "@/components/providers/SocketProvider";
+import { apiRequest } from "@/utils/api-client";
 import {
   Send,
   Paperclip,

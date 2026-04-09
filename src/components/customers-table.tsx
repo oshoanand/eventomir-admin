@@ -63,7 +63,7 @@ import {
 } from "@/data/use-customers";
 
 // 1. IMPORT SOCKET HOOK
-import { useSocket } from "@/components/providers/socket-provider";
+import { useSocket } from "@/components/providers/SocketProvider";
 
 export default function CustomersTable() {
   const { toast } = useToast();

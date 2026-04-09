@@ -10,7 +10,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { useSocket } from "@/components/providers/socket-provider";
+import { useSocket } from "@/components/providers/SocketProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   NotificationContextType,
