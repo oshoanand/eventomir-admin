@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -39,6 +39,7 @@ import {
   MessageSquare,
   UserCheck,
   Trash2,
+  Eye,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,8 @@ import {
 } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhoneNumber, formatDate } from "@/utils/helper";
-import { apiRequest } from "@/utils/api-client"; // Helper for API calls
+import { apiRequest } from "@/utils/api-client";
+import Link from "next/link"; // Added Link for the details page
 
 // Import your queries and mutations
 import {
@@ -102,17 +104,26 @@ export default function CustomersTable() {
     setIsEditModalOpen(true);
   };
 
-  // 3. HANDLE START CHAT
+  // 3. HANDLE START CHAT (FIXED)
   const handleStartChat = async (customerId: string) => {
+    toast({
+      title: "Создание чата...",
+      description: "Пожалуйста, подождите. Идет настройка комнаты.",
+    });
+
     try {
       // Create or get chat via API
       const res = await apiRequest<{ id: string }>({
-        method: "post",
-        url: "/api/chats/create",
-        data: { targetUserId: customerId },
+        method: "POST",
+        url: "/api/chats", // Fixed endpoint
+        data: { participantId: customerId }, // Fixed payload key
       });
-      // Redirect to the chat room
-      router.push(`/chat/${res.id}`);
+
+      if (res && res.id) {
+        router.push(`/chat/${res.id}`);
+      } else {
+        throw new Error("Chat ID not returned");
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -196,7 +207,8 @@ export default function CustomersTable() {
                         <Avatar className="h-10 w-10 border border-gray-200">
                           <AvatarImage src={customer.profile_picture || ""} />
                           <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                            {customer.name?.charAt(0) || "U"}
+                            {customer.name?.substring(0, 2).toUpperCase() ||
+                              "UN"}
                           </AvatarFallback>
                         </Avatar>
                         {/* Status Indicator */}
@@ -273,9 +285,10 @@ export default function CustomersTable() {
                           <MoreHorizontal className="h-4 w-4 text-gray-500" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem
-                          onClick={() => handleStartChat(customer.id)}
+                          onSelect={() => handleStartChat(customer.id)}
+                          className="cursor-pointer"
                         >
                           <MessageSquare className="mr-2 h-4 w-4" />
                           Написать сообщение
@@ -284,17 +297,26 @@ export default function CustomersTable() {
                         <DropdownMenuSeparator />
 
                         <DropdownMenuItem
-                          onClick={() => handleOpenEdit(customer)}
+                          onSelect={() => handleOpenEdit(customer)}
+                          className="cursor-pointer"
                         >
                           <UserCheck className="mr-2 h-4 w-4" />
                           Изменить статус
                         </DropdownMenuItem>
 
-                        <DropdownMenuItem>Подробности</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+
+                        {/* Detail View Link (assuming same structure as Performers) */}
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                          <Link href={`/users/customers/view/${customer.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Детальный просмотр
+                          </Link>
+                        </DropdownMenuItem>
 
                         <DropdownMenuSeparator />
 
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                           <Trash2 className="mr-2 h-4 w-4" />
                           Удалить
                         </DropdownMenuItem>

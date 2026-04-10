@@ -104,17 +104,47 @@ export default function PerformersTable() {
   };
 
   // 2. Chat Creation Handler
+  // const handleStartChat = async (performerId: string) => {
+  //   try {
+  //     // Call API to create a room or get existing one
+  //     const res = await apiRequest<{ id: string }>({
+  //       method: "post",
+  //       url: "/api/chats/create",
+  //       data: { targetUserId: performerId },
+  //     });
+
+  //     // Redirect Admin to the Chat Page
+  //     router.push(`/chat/${res.id}`);
+  //   } catch (error) {
+  //     console.error("Chat creation failed", error);
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Ошибка",
+  //       description: "Не удалось открыть чат с пользователем.",
+  //     });
+  //   }
+  // };
+  // 2. Chat Creation Handler
   const handleStartChat = async (performerId: string) => {
+    toast({
+      variant: "success",
+      title: "Создание чата...",
+      description: "Пожалуйста, подождите. Идет настройка комнаты.",
+    });
+
     try {
-      // Call API to create a room or get existing one
       const res = await apiRequest<{ id: string }>({
-        method: "post",
-        url: "/api/chats/create",
-        data: { targetUserId: performerId },
+        method: "POST",
+        url: "/api/chats",
+        data: { participantId: performerId },
       });
 
       // Redirect Admin to the Chat Page
-      router.push(`/chat/${res.id}`);
+      if (res && res.id) {
+        router.push(`/chat/${res.id}`);
+      } else {
+        throw new Error("Chat ID not returned");
+      }
     } catch (error) {
       console.error("Chat creation failed", error);
       toast({
@@ -279,8 +309,21 @@ export default function PerformersTable() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem
+                        {/* <DropdownMenuItem
                           onClick={() => handleStartChat(performer.id)}
+                          className="cursor-pointer"
+                        >
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Написать сообщение
+                        </DropdownMenuItem> */}
+
+                        <DropdownMenuItem
+                          // 🚨 Changed from onClick to onSelect
+                          onSelect={(e) => {
+                            // Optional: e.preventDefault() keeps the dropdown open while loading,
+                            // but usually, it's fine to let it close as long as we show a Toast.
+                            handleStartChat(performer.id);
+                          }}
                           className="cursor-pointer"
                         >
                           <MessageSquare className="mr-2 h-4 w-4" />
