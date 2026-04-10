@@ -1,43 +1,51 @@
-// Existing Token Type
-export interface TokenPayload {
-  type: "TOKEN"; // Discriminator
-  id: number | string;
-  tokenCode: string;
-  orderNumber: string;
-  mobileNumber: string;
-  status: string;
+// Common fields for all notifications
+export interface BaseNotification {
+  id: string | number;
+  isRead?: boolean;
+  message?: string; // Used in the UI list
   createdAt: string | Date;
 }
 
-// New Job Type
-export interface JobPayload {
-  type: "JOB"; // Discriminator
-  id: number;
-  description: string;
-  location: string;
-  cost: string;
-  postedBy: string;
-  createdAt: string | Date;
+// Chat Message Notification (NEW)
+export interface ChatMessagePayload extends BaseNotification {
+  type: "CHAT_MESSAGE";
+  data: {
+    chatId: string;
+    senderName: string;
+    preview: string;
+  };
 }
 
-// Add this interface
-export interface PartnerRequestPayload {
+// Booking Request Notification (Used in NotificationsPage)
+export interface BookingRequestPayload extends BaseNotification {
+  type: "BOOKING_REQUEST";
+  data: {
+    bookingId: string;
+    customerId?: string;
+    status?: string;
+  };
+}
+
+// 🚨 FIX: Added "extends BaseNotification" here
+export interface PartnerRequestPayload extends BaseNotification {
   type: "PARTNER_REQUEST" | "SYSTEM";
   message: string;
   link?: string;
+  // createdAt is inherited from BaseNotification, but explicitly typing it as string here is fine
   createdAt: string;
 }
 
-// Update your Union Type
+// Union Type
 export type NotificationItem =
-  | TokenPayload
-  | JobPayload
+  | ChatMessagePayload
+  | BookingRequestPayload
   | PartnerRequestPayload
-  | any;
+  | (BaseNotification & { type: string; data?: any }); // Fallback for generic types
 
 export interface NotificationContextType {
   notifications: NotificationItem[];
   unreadCount: number;
   markAllAsRead: () => void;
+  markAsRead: (id: string) => void;
   socket: any;
 }

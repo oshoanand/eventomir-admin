@@ -15,9 +15,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   NotificationContextType,
   NotificationItem,
-  TokenPayload,
-  JobPayload,
-  PartnerRequestPayload,
 } from "@/types/notification";
 
 const NotificationContext = createContext<NotificationContextType | undefined>(
@@ -31,17 +28,15 @@ interface NotificationProviderProps {
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   children,
 }) => {
-  // Consume the shared socket from the Provider
-  // We don't need useSession here anymore, as SocketProvider handles auth
   const { socket } = useSocket();
   const queryClient = useQueryClient();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-
   const { toast } = useToast();
   const router = useRouter();
 
-  // Helper function to play sound
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  // --- Audio Helper ---
   const playNotificationSound = useCallback(() => {
     try {
       const audio = new Audio("/sounds/notification.wav");
@@ -52,79 +47,63 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   }, []);
 
   useEffect(() => {
-    // 3. Guard: Wait until the socket is initialized and connected
     if (!socket) return;
 
-    // 4. Define the Event Listener
     const handleNotification = (payload: any) => {
-      console.log("🔔 Received Notification:", payload);
+      console.log("🔔 Received Admin Notification:", payload);
 
       const { type, data } = payload;
 
-      // Handle "TOKEN" type
-      if (type === "TOKEN") {
-        const item: TokenPayload = { ...data, type: "TOKEN" };
+      // 🚨 ANTI-SPAM CHECK: Determine if this is a live event or old history
+      const notifTime = payload.createdAt
+        ? new Date(payload.createdAt).getTime()
+        : Date.now();
+      const isOldMessage = Date.now() - notifTime > 10000; // Older than 10 seconds
 
-        setNotifications((prev) => [item, ...prev]);
-        setUnreadCount((prev) => prev + 1);
-        playNotificationSound();
+      // Create a safe base item for TypeScript compliance
+      const baseItem = {
+        id: payload.id || Date.now().toString(),
+        isRead: false,
+        createdAt: payload.createdAt || new Date().toISOString(),
+      };
 
-        toast({
-          title: "New Token Generated 🎟️",
-          description: `Token: ${data.tokenCode}`,
-          variant: "success",
-          duration: 8000,
-          action: {
-            label: "View",
-            onClick: () => router.push("/tokens"),
-          },
-        });
-      }
-
-      // Handle "JOB" type
-      else if (type === "JOB") {
-        const item: JobPayload = { ...data, type: "JOB" };
-
-        setNotifications((prev) => [item, ...prev]);
-        setUnreadCount((prev) => prev + 1);
-        playNotificationSound();
-
-        toast({
-          title: "New Job Posted 🚛",
-          description: `${data.location} | ${data.cost}₽`,
-          variant: "default",
-          duration: 8000,
-          action: {
-            label: "Jobs",
-            onClick: () => router.push("/jobs"),
-          },
-        });
-      } else if (type === "PARTNER_REQUEST" || type === "SYSTEM") {
-        const item: PartnerRequestPayload = {
+      // --- Handle "PARTNER_REQUEST", "SYSTEM", or "MODERATION_UPDATE" ---
+      if (
+        type === "PARTNER_REQUEST" ||
+        type === "SYSTEM" ||
+        type === "MODERATION_UPDATE"
+      ) {
+        const item: NotificationItem = {
+          ...baseItem,
           type: type as any,
-          message: payload.message,
-          link: payload.link,
-          createdAt: payload.createdAt || new Date().toISOString(),
-        };
+          title: payload.title || "Уведомление",
+          message: payload.message || payload.body,
+          link: payload.link || data?.url,
+          data: data || {},
+        } as any;
 
         setNotifications((prev) => [item, ...prev]);
         setUnreadCount((prev) => prev + 1);
-        playNotificationSound();
 
-        toast({
-          title:
-            type === "PARTNER_REQUEST"
-              ? "Новая заявка на партнерство 🤝"
-              : "Уведомление",
-          description: payload.message,
-          duration: 8000,
-          action: payload.link
-            ? {
-                label: "Смотреть",
-                onClick: () => router.push(payload.link),
-              }
-            : undefined,
-        });
+        if (!isOldMessage) {
+          playNotificationSound();
+          toast({
+            title:
+              payload.title ||
+              (type === "PARTNER_REQUEST"
+                ? "Новая заявка на партнерство 🤝"
+                : "Уведомление"),
+            description: payload.message || payload.body,
+            duration: 8000,
+            action:
+              payload.link || data?.url
+                ? {
+                    label: "Смотреть",
+                    onClick: () => router.push(payload.link || data?.url),
+                  }
+                : undefined,
+          });
+        }
 
         // 🔥 Smart Cache Invalidation: Refresh the admin table instantly
         if (type === "PARTNER_REQUEST" || payload.link?.includes("partners")) {
@@ -134,30 +113,51 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
       // --- Handle Unknown generic types ---
       else {
-        setNotifications((prev) => [
-          { ...payload, id: Date.now().toString() },
-          ...prev,
-        ]);
+        const item: NotificationItem = {
+          ...baseItem,
+          ...payload,
+          type: type || "SYSTEM",
+        } as any;
+
+        setNotifications((prev) => [item, ...prev]);
         setUnreadCount((prev) => prev + 1);
-        toast({
-          title: payload.message || "Уведомление",
-          description: "Новое сообщение от системы",
-        });
+
+        if (!isOldMessage) {
+          toast({
+            variant: "success",
+            title: payload.title || "Уведомление",
+            description:
+              payload.message || payload.body || "Новое сообщение от системы",
+          });
+        }
       }
     };
 
-    // 5. Attach the listener to the shared socket instance
+    // Attach Listener
     socket.on("notification", handleNotification);
 
-    // 6. Cleanup: Remove ONLY this specific listener when component unmounts
-    // DO NOT disconnect the socket here, as other components (like Chat) need it.
     return () => {
       socket.off("notification", handleNotification);
     };
   }, [socket, toast, router, playNotificationSound, queryClient]);
 
+  // --- Mark Read Logic ---
   const markAllAsRead = () => {
     setUnreadCount(0);
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const markAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => {
+        if (n.id === id && !n.isRead) {
+          // Prevent negative count
+          setUnreadCount((c) => Math.max(0, c - 1));
+          return { ...n, isRead: true };
+        }
+        return n;
+      }),
+    );
   };
 
   return (
@@ -166,7 +166,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         notifications,
         unreadCount,
         markAllAsRead,
-        socket, // Pass the socket down if needed, though consumers should prefer useSocket()
+        markAsRead,
+        socket,
       }}
     >
       {children}
