@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ApiError } from "@/utils/api-client";
 
 export default function CreateSubscriptionPage() {
   const router = useRouter();
@@ -14,27 +15,43 @@ export default function CreateSubscriptionPage() {
   const { mutate: createPlan, isPending } = useCreatePlan();
 
   return (
-    <div className="container py-10 max-w-5xl">
-      <div className="mb-6 flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
+    <div className="container py-10 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-6">
+        <Button asChild variant="ghost" size="sm" className="mb-4">
           <Link href="/pricing">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Назад
+            <ArrowLeft className="mr-2 h-4 w-4" /> Вернуться к тарифам
           </Link>
         </Button>
+        <h1 className="text-3xl font-bold">Создать новый тариф</h1>
+        <p className="text-muted-foreground mt-1">
+          Заполните данные и настройте лимиты для нового уровня подписки.
+        </p>
       </div>
-
-      <h1 className="text-3xl font-bold mb-8">Создать новый тариф</h1>
 
       <SubscriptionPlanForm
         isSubmitting={isPending}
-        onSubmit={(data) => {
+        onSubmit={(data: any) => {
           createPlan(data, {
             onSuccess: () => {
-              toast({ title: "Тариф создан!" });
+              toast({
+                title: "Тариф успешно создан!",
+                variant: "success",
+              });
               router.push("/pricing");
             },
-            onError: () =>
-              toast({ variant: "destructive", title: "Ошибка создания" }),
+            onError: (error: any) => {
+              // 🚨 ROBUST ERROR HANDLING: Catch backend duplicate tier warnings
+              const errorMessage =
+                error instanceof ApiError
+                  ? error.message
+                  : "Произошла системная ошибка при создании тарифа.";
+
+              toast({
+                variant: "destructive",
+                title: "Ошибка создания",
+                description: errorMessage,
+              });
+            },
           });
         }}
       />

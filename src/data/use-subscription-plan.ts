@@ -11,10 +11,12 @@ export interface SubscriptionPlan {
   description: string;
   tier: SubscriptionTier;
   priceMonthly: number;
-  priceHalfYearly?: number;
-  priceYearly?: number;
-  features: string[];
+  priceHalfYearly?: number | null;
+  priceYearly?: number | null;
+  features: Record<string, any>;
   isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type CreatePlanDTO = Omit<
@@ -25,15 +27,15 @@ export type CreatePlanDTO = Omit<
 // --- API Functions ---
 
 const fetchAdminPlans = async (): Promise<SubscriptionPlan[]> => {
-  return await apiRequest({ method: "get", url: "/api/tariff/plans" });
+  return await apiRequest({ method: "get", url: "/api/subscriptions" });
 };
 
 const fetchAdminPlanById = async (id: string): Promise<SubscriptionPlan> => {
-  return await apiRequest({ method: "get", url: `/api/tariff/plans/${id}` });
+  return await apiRequest({ method: "get", url: `/api/subscriptions/${id}` });
 };
 
 const createPlanFn = async (data: CreatePlanDTO): Promise<SubscriptionPlan> => {
-  return await apiRequest({ method: "post", url: "/api/tariff/plans", data });
+  return await apiRequest({ method: "post", url: "/api/subscriptions", data });
 };
 
 const updatePlanFn = async ({
@@ -45,13 +47,16 @@ const updatePlanFn = async ({
 }): Promise<SubscriptionPlan> => {
   return await apiRequest({
     method: "patch",
-    url: `/api/tariff/plans/${id}`,
+    url: `/api/subscriptions/${id}`,
     data,
   });
 };
 
 const deletePlanFn = async (id: string): Promise<void> => {
-  return await apiRequest({ method: "delete", url: `/api/tariff/plans/${id}` });
+  return await apiRequest({
+    method: "delete",
+    url: `/api/subscriptions/${id}`,
+  });
 };
 
 // --- Hooks ---

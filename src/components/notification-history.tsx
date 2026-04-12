@@ -25,7 +25,7 @@ interface NotificationLog {
   body: string;
   targetType: "topic" | "token";
   target: string;
-  status: "SENT" | "FAILED";
+  status: "SUCCESS" | "FAILED";
   sentAt: string;
 }
 
@@ -93,7 +93,7 @@ export function NotificationHistory() {
               logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell>
-                    {log.status === "SENT" ? (
+                    {log.status === "SUCCESS" ? (
                       <Badge
                         variant="outline"
                         className="bg-green-50 text-green-700 border-green-200 gap-1"
