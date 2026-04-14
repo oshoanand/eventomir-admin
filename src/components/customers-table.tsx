@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Table,
   TableBody,
@@ -55,24 +56,35 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatPhoneNumber, formatDate } from "@/utils/helper";
 import { apiRequest } from "@/utils/api-client";
-import Link from "next/link"; // Added Link for the details page
+import Link from "next/link";
 
-// Import your queries and mutations
+// Queries and mutations
 import {
   useCustomersQuery,
   useUpdateModerationMutation,
   Customer,
 } from "@/data/use-customers";
 
-// 1. IMPORT SOCKET HOOK
-import { useSocket } from "@/components/providers/SocketProvider";
+// 1. IMPORT ZUSTAND CHAT STORE
+import { useChatStore } from "@/store/useChatStore";
 
 export default function CustomersTable() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // 2. GET ONLINE USERS FROM SOCKET
-  const { onlineUsers } = useSocket() || { onlineUsers: [] };
+  // Fetch session to authenticate the socket
+  const { data: session, status } = useSession();
+
+  // 2. GET STATE AND ACTIONS FROM ZUSTAND
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const connectSocket = useChatStore((state) => state.connectSocket);
+
+  // Initialize global socket connection for the Admin User
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.id) {
+      connectSocket(session.user.id as string);
+    }
+  }, [status, session, connectSocket]);
 
   // Table State
   const [page, setPage] = useState(1);
@@ -104,27 +116,30 @@ export default function CustomersTable() {
     setIsEditModalOpen(true);
   };
 
-  // 3. HANDLE START CHAT (FIXED)
+  // 3. HANDLE START CHAT
   const handleStartChat = async (customerId: string) => {
     toast({
+      variant: "success",
       title: "Создание чата...",
       description: "Пожалуйста, подождите. Идет настройка комнаты.",
     });
 
     try {
-      // Create or get chat via API
-      const res = await apiRequest<{ id: string }>({
+      // Hit the standardized init endpoint using your api client
+      const res = await apiRequest<{ chatId: string; partnerId: string }>({
         method: "POST",
-        url: "/api/chats", // Fixed endpoint
-        data: { participantId: customerId }, // Fixed payload key
+        url: "/api/chats/init",
+        data: { partnerId: customerId },
       });
 
-      if (res && res.id) {
-        router.push(`/chat/${res.id}`);
+      // Route based on partner ID as expected by your ChatDetailScreen
+      if (res && res.partnerId) {
+        router.push(`/chat/${res.partnerId}`);
       } else {
-        throw new Error("Chat ID not returned");
+        router.push(`/chat/${customerId}`); // Fallback failsafe
       }
     } catch (error) {
+      console.error("Chat Init Error:", error);
       toast({
         variant: "destructive",
         title: "Ошибка",
@@ -195,8 +210,8 @@ export default function CustomersTable() {
           </TableHeader>
           <TableBody>
             {data?.data.map((customer) => {
-              // 4. CHECK ONLINE STATUS
-              const isOnline = onlineUsers.includes(customer.id);
+              // 4. CHECK ONLINE STATUS WITH .has() FOR SET
+              const isOnline = onlineUsers.has(customer.id);
 
               return (
                 <TableRow key={customer.id} className="hover:bg-muted/20">
@@ -306,7 +321,6 @@ export default function CustomersTable() {
 
                         <DropdownMenuSeparator />
 
-                        {/* Detail View Link (assuming same structure as Performers) */}
                         <DropdownMenuItem asChild className="cursor-pointer">
                           <Link href={`/users/customers/view/${customer.id}`}>
                             <Eye className="mr-2 h-4 w-4" />

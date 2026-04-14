@@ -40,7 +40,6 @@ export default function CreateSubscriptionPage() {
               router.push("/pricing");
             },
             onError: (error: any) => {
-              // 🚨 ROBUST ERROR HANDLING: Catch backend duplicate tier warnings
               const errorMessage =
                 error instanceof ApiError
                   ? error.message

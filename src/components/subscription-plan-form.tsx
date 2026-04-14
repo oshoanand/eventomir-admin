@@ -29,6 +29,7 @@ import {
   Hash,
   Type,
   ToggleLeft,
+  PencilLine,
 } from "lucide-react";
 
 interface SubscriptionPlanFormProps {
@@ -37,23 +38,14 @@ interface SubscriptionPlanFormProps {
   isSubmitting: boolean;
 }
 
-// Pre-defined baseline features for ease of use
-const FEATURE_DEFINITIONS = [
-  { key: "maxPhotoUpload", label: "Макс. количество фото", type: "number" },
-  { key: "emailSupport", label: "Поддержка по Email", type: "boolean" },
-  { key: "chatSupport", label: "Поддержка в Чате", type: "boolean" },
-  { key: "telephonicSupport", label: "Телефонная поддержка", type: "boolean" },
-  { key: "prioritySupport", label: "Приоритетная поддержка", type: "boolean" },
-  { key: "profileSeo", label: "SEO настройка профиля", type: "boolean" },
-  { key: "profileMarketing", label: "Маркетинг профиля", type: "boolean" },
-  {
-    key: "portfolioPromotion",
-    label: "Продвижение портфолио",
-    type: "boolean",
-  },
-];
-
 type CustomFeatureType = "text" | "number" | "boolean";
+
+interface StandardFeature {
+  key: string;
+  label: string;
+  type: CustomFeatureType;
+  value: any;
+}
 
 interface CustomFeature {
   id: string;
@@ -61,6 +53,58 @@ interface CustomFeature {
   value: any;
   type: CustomFeatureType;
 }
+
+// Initial templates for standard features
+const INITIAL_STANDARD_FEATURES: StandardFeature[] = [
+  {
+    key: "maxPhotoUpload",
+    label: "Макс. количество фото",
+    type: "number",
+    value: 0,
+  },
+  {
+    key: "emailSupport",
+    label: "Поддержка по Email",
+    type: "boolean",
+    value: false,
+  },
+  {
+    key: "chatSupport",
+    label: "Поддержка в Чате",
+    type: "boolean",
+    value: false,
+  },
+  {
+    key: "telephonicSupport",
+    label: "Телефонная поддержка",
+    type: "boolean",
+    value: false,
+  },
+  {
+    key: "prioritySupport",
+    label: "Приоритетная поддержка",
+    type: "boolean",
+    value: false,
+  },
+  {
+    key: "profileSeo",
+    label: "SEO настройка профиля",
+    type: "boolean",
+    value: false,
+  },
+  {
+    key: "profileMarketing",
+    label: "Маркетинг профиля",
+    type: "boolean",
+    value: false,
+  },
+  {
+    key: "portfolioPromotion",
+    label: "Продвижение портфолио",
+    type: "boolean",
+    value: false,
+  },
+];
 
 export default function SubscriptionPlanForm({
   initialData,
@@ -79,38 +123,66 @@ export default function SubscriptionPlanForm({
   });
 
   // --- 2. FEATURES STATE ---
-  // Split JSON features into Standard and Custom for the UI
-  const [standardFeatures, setStandardFeatures] = useState<Record<string, any>>(
-    {},
+  const [standardFeatures, setStandardFeatures] = useState<StandardFeature[]>(
+    [],
   );
   const [customFeatures, setCustomFeatures] = useState<CustomFeature[]>([]);
 
   // Parse initial DB JSON into the UI
   useEffect(() => {
-    const initStd: Record<string, any> = {};
-    const initCust: CustomFeature[] = [];
     const sourceFeatures = initialData?.features || {};
 
-    // Populate baseline standards even if not in DB yet
-    FEATURE_DEFINITIONS.forEach((def) => {
-      initStd[def.key] =
-        sourceFeatures[def.key] ?? (def.type === "number" ? 0 : false);
+    // Process Standard Features
+    const initStd: StandardFeature[] = INITIAL_STANDARD_FEATURES.map((def) => {
+      const featureData = sourceFeatures[def.key];
+
+      // Check if the data is saved as our new rich object, or if it's legacy flat data
+      const isRichObject =
+        featureData &&
+        typeof featureData === "object" &&
+        !Array.isArray(featureData);
+
+      return {
+        ...def,
+        // Prioritize the saved label from the DB, otherwise fallback to default
+        label:
+          isRichObject && featureData.label ? featureData.label : def.label,
+        // Prioritize the saved value from the DB, otherwise fallback to default
+        value:
+          isRichObject && featureData.value !== undefined
+            ? featureData.value
+            : featureData !== undefined
+              ? featureData
+              : def.value,
+      };
     });
 
-    // Extract any keys that aren't standard and load them as Custom Features
-    Object.entries(sourceFeatures).forEach(([key, value]) => {
-      if (!FEATURE_DEFINITIONS.find((def) => def.key === key)) {
-        const type: CustomFeatureType =
-          typeof value === "boolean"
+    // Process Custom Features (anything not defined in INITIAL_STANDARD_FEATURES)
+    const initCust: CustomFeature[] = [];
+    const standardKeys = INITIAL_STANDARD_FEATURES.map((f) => f.key);
+
+    Object.entries(sourceFeatures).forEach(([key, featureData]) => {
+      if (!standardKeys.includes(key)) {
+        const isRichObject =
+          featureData &&
+          typeof featureData === "object" &&
+          !Array.isArray(featureData);
+
+        // Extract value and type handling both new rich objects and old flat data
+        const value = isRichObject ? (featureData as any).value : featureData;
+        const type: CustomFeatureType = isRichObject
+          ? (featureData as any).type
+          : typeof value === "boolean"
             ? "boolean"
             : typeof value === "number"
               ? "number"
               : "text";
+
         initCust.push({
           id: Math.random().toString(),
           keyName: key,
-          value,
-          type,
+          value: value,
+          type: type,
         });
       }
     });
@@ -120,12 +192,17 @@ export default function SubscriptionPlanForm({
   }, [initialData]);
 
   // --- 3. HANDLERS ---
-  const handleStandardToggle = (key: string, checked: boolean) => {
-    setStandardFeatures((prev) => ({ ...prev, [key]: checked }));
-  };
-
-  const handleStandardNumber = (key: string, value: string) => {
-    setStandardFeatures((prev) => ({ ...prev, [key]: parseInt(value) || 0 }));
+  const updateStandardFeature = (
+    key: string,
+    field: "value" | "label",
+    val: any,
+  ) => {
+    setStandardFeatures((prev) =>
+      prev.map((f) => {
+        if (f.key !== key) return f;
+        return { ...f, [field]: val };
+      }),
+    );
   };
 
   const addCustomFeature = () => {
@@ -166,13 +243,28 @@ export default function SubscriptionPlanForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Reconstruct the final JSON object to send to the backend
-    const compiledFeatures: Record<string, any> = { ...standardFeatures };
+    const compiledFeatures: Record<string, any> = {};
 
+    // 🚨 FIX: Save standard features as rich JSON objects
+    standardFeatures.forEach((f) => {
+      compiledFeatures[f.key] = {
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        value: f.type === "number" ? Number(f.value) || 0 : f.value,
+      };
+    });
+
+    // Save custom features uniformly as rich JSON objects
     customFeatures.forEach((cf) => {
       if (cf.keyName.trim() !== "") {
-        compiledFeatures[cf.keyName.trim()] =
-          cf.type === "number" ? Number(cf.value) : cf.value;
+        const cleanKey = cf.keyName.trim();
+        compiledFeatures[cleanKey] = {
+          key: cleanKey,
+          label: cleanKey, // Custom features use the key as the label by default
+          type: cf.type,
+          value: cf.type === "number" ? Number(cf.value) || 0 : cf.value,
+        };
       }
     });
 
@@ -188,7 +280,7 @@ export default function SubscriptionPlanForm({
       onSubmit={handleSubmit}
       className="grid grid-cols-1 xl:grid-cols-12 gap-8 pb-20"
     >
-      {/* LEFT COLUMN: Basic Info (Takes 4 of 12 columns on large screens) */}
+      {/* LEFT COLUMN: Basic Info */}
       <div className="xl:col-span-4 space-y-6">
         <Card className="shadow-sm">
           <CardHeader>
@@ -322,44 +414,62 @@ export default function SubscriptionPlanForm({
         </Card>
       </div>
 
-      {/* RIGHT COLUMN: Feature Matrix Builder (Takes 8 of 12 columns) */}
+      {/* RIGHT COLUMN: Feature Matrix Builder */}
       <div className="xl:col-span-8 space-y-6">
         {/* STANDARD FEATURES */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Базовые лимиты и права</CardTitle>
-            <CardDescription>Стандартный функционал платформы.</CardDescription>
+            <CardDescription>
+              Стандартный функционал платформы. Вы можете свободно редактировать
+              ярлыки (Label), они будут сохранены в базе.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {FEATURE_DEFINITIONS.map((def) => (
+          <CardContent className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {standardFeatures.map((def) => (
               <div
                 key={def.key}
-                className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-slate-50 transition-colors"
+                className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-slate-50 transition-colors gap-4"
               >
-                <div className="pr-4">
-                  <Label className="text-sm font-semibold">{def.label}</Label>
-                  <p className="text-[11px] text-muted-foreground font-mono mt-1 bg-slate-100 w-fit px-1.5 rounded">
+                {/* Editable Label Area */}
+                <div className="flex-1 min-w-0">
+                  <div className="relative group">
+                    <Input
+                      value={def.label}
+                      onChange={(e) =>
+                        updateStandardFeature(def.key, "label", e.target.value)
+                      }
+                      className="h-8 text-sm font-semibold border-transparent hover:border-input focus:border-input bg-transparent px-1 -ml-1 transition-all"
+                      title="Изменить название фичи"
+                    />
+                    <PencilLine className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-30 pointer-events-none" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-mono mt-0.5 bg-slate-100 w-fit px-1.5 rounded">
                     {def.key}
                   </p>
                 </div>
-                {def.type === "boolean" ? (
-                  <Switch
-                    checked={!!standardFeatures[def.key]}
-                    onCheckedChange={(checked) =>
-                      handleStandardToggle(def.key, checked)
-                    }
-                  />
-                ) : (
-                  <Input
-                    type="number"
-                    className="w-24 text-center font-semibold"
-                    min="0"
-                    value={standardFeatures[def.key] ?? 0}
-                    onChange={(e) =>
-                      handleStandardNumber(def.key, e.target.value)
-                    }
-                  />
-                )}
+
+                {/* Value Input Area */}
+                <div className="shrink-0 flex items-center justify-end">
+                  {def.type === "boolean" ? (
+                    <Switch
+                      checked={!!def.value}
+                      onCheckedChange={(checked) =>
+                        updateStandardFeature(def.key, "value", checked)
+                      }
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      className="w-20 text-center font-semibold h-9"
+                      min="0"
+                      value={def.value}
+                      onChange={(e) =>
+                        updateStandardFeature(def.key, "value", e.target.value)
+                      }
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>

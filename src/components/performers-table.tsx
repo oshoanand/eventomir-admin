@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   Table,
@@ -57,21 +58,33 @@ import { useToast } from "@/hooks/use-toast";
 import { formatPhoneNumber, formatDate } from "@/utils/helper";
 import { apiRequest } from "@/utils/api-client";
 
-// --- Custom Hooks ---
+// Import your performer queries and mutations (adjust path/names if necessary)
 import {
   usePerformersQuery,
   useUpdateModerationMutation,
   Performer,
 } from "@/data/use-performers";
-import { useSocket } from "@/components/providers/SocketProvider";
+
+// 1. IMPORT ZUSTAND CHAT STORE
+import { useChatStore } from "@/store/useChatStore";
 
 export default function PerformersTable() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // 1. Real-Time Online Status
-  // We extract onlineUsers from the socket context to check user presence
-  const { onlineUsers } = useSocket() || { onlineUsers: [] };
+  // Fetch session to authenticate the socket
+  const { data: session, status } = useSession();
+
+  // 2. GET STATE AND ACTIONS FROM ZUSTAND
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const connectSocket = useChatStore((state) => state.connectSocket);
+
+  // Initialize global socket connection for the Admin User
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.id) {
+      connectSocket(session.user.id as string);
+    }
+  }, [status, session, connectSocket]);
 
   // --- State ---
   const [page, setPage] = useState(1);
@@ -103,54 +116,39 @@ export default function PerformersTable() {
     setIsEditModalOpen(true);
   };
 
-  // 2. Chat Creation Handler
-  // const handleStartChat = async (performerId: string) => {
-  //   try {
-  //     // Call API to create a room or get existing one
-  //     const res = await apiRequest<{ id: string }>({
-  //       method: "post",
-  //       url: "/api/chats/create",
-  //       data: { targetUserId: performerId },
-  //     });
-
-  //     // Redirect Admin to the Chat Page
-  //     router.push(`/chat/${res.id}`);
-  //   } catch (error) {
-  //     console.error("Chat creation failed", error);
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Ошибка",
-  //       description: "Не удалось открыть чат с пользователем.",
-  //     });
-  //   }
-  // };
-  // 2. Chat Creation Handler
+  // 3. HANDLE START CHAT
   const handleStartChat = async (performerId: string) => {
     toast({
-      variant: "success",
       title: "Создание чата...",
       description: "Пожалуйста, подождите. Идет настройка комнаты.",
     });
 
     try {
-      const res = await apiRequest<{ id: string }>({
+      // Hit the standardized init endpoint using your api client
+      const res = await apiRequest<{
+        chatId: string;
+        partnerId: string;
+        id?: string;
+      }>({
         method: "POST",
-        url: "/api/chats",
-        data: { participantId: performerId },
+        url: "/api/chats/init",
+        data: { partnerId: performerId },
       });
 
-      // Redirect Admin to the Chat Page
-      if (res && res.id) {
-        router.push(`/chat/${res.id}`);
+      // Route based on partner ID as expected by your ChatDetailScreen
+      if (res && res.partnerId) {
+        router.push(`/chat/${res.partnerId}`);
+      } else if (res && res.id) {
+        router.push(`/chat/${res.id}`); // Fallback
       } else {
-        throw new Error("Chat ID not returned");
+        router.push(`/chat/${performerId}`); // Ultimate fallback failsafe
       }
     } catch (error) {
-      console.error("Chat creation failed", error);
+      console.error("Chat Init Error:", error);
       toast({
         variant: "destructive",
         title: "Ошибка",
-        description: "Не удалось открыть чат с пользователем.",
+        description: "Не удалось открыть чат с исполнителем.",
       });
     }
   };
@@ -203,7 +201,7 @@ export default function PerformersTable() {
 
   return (
     <>
-      <div className="rounded-md border bg-white shadow-sm">
+      <div className="rounded-md border bg-white shadow-sm overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -217,15 +215,15 @@ export default function PerformersTable() {
           </TableHeader>
           <TableBody>
             {data?.data.map((performer) => {
-              // Check if specific user is online
-              const isOnline = onlineUsers.includes(performer.id);
+              // 4. CHECK ONLINE STATUS WITH .has() FOR SET
+              const isOnline = onlineUsers.has(performer.id);
 
               return (
                 <TableRow key={performer.id} className="hover:bg-muted/20">
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {/* Avatar with Online Indicator */}
-                      <div className="relative">
+                      <div className="relative shrink-0">
                         <Avatar className="h-10 w-10 border border-gray-200">
                           <AvatarImage src={performer.profile_picture || ""} />
                           <AvatarFallback className="bg-primary/10 text-primary font-medium">
@@ -242,18 +240,18 @@ export default function PerformersTable() {
                         />
                       </div>
 
-                      <div className="flex flex-col">
+                      <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-gray-900 truncate">
                             {performer.name}
                           </span>
                           {isOnline && (
-                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
                               Online
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground truncate">
                           {performer.city} •{" "}
                           {formatPhoneNumber(performer.phone)}
                         </span>
@@ -261,7 +259,9 @@ export default function PerformersTable() {
                     </div>
                   </TableCell>
 
-                  <TableCell className="text-sm">{performer.email}</TableCell>
+                  <TableCell className="text-sm truncate max-w-[150px]">
+                    {performer.email}
+                  </TableCell>
 
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(performer.created_at)}
@@ -309,21 +309,8 @@ export default function PerformersTable() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        {/* <DropdownMenuItem
-                          onClick={() => handleStartChat(performer.id)}
-                          className="cursor-pointer"
-                        >
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Написать сообщение
-                        </DropdownMenuItem> */}
-
                         <DropdownMenuItem
-                          // 🚨 Changed from onClick to onSelect
-                          onSelect={(e) => {
-                            // Optional: e.preventDefault() keeps the dropdown open while loading,
-                            // but usually, it's fine to let it close as long as we show a Toast.
-                            handleStartChat(performer.id);
-                          }}
+                          onSelect={() => handleStartChat(performer.id)}
                           className="cursor-pointer"
                         >
                           <MessageSquare className="mr-2 h-4 w-4" />
@@ -333,7 +320,7 @@ export default function PerformersTable() {
                         <DropdownMenuSeparator />
 
                         <DropdownMenuItem
-                          onClick={() => handleOpenEdit(performer)}
+                          onSelect={() => handleOpenEdit(performer)}
                           className="cursor-pointer"
                         >
                           <UserCheck className="mr-2 h-4 w-4" />
@@ -342,14 +329,12 @@ export default function PerformersTable() {
 
                         <DropdownMenuSeparator />
 
-                        {/* --- NEW VIEW DETAILS LINK --- */}
                         <DropdownMenuItem asChild className="cursor-pointer">
                           <Link href={`/users/performers/view/${performer.id}`}>
                             <Eye className="mr-2 h-4 w-4" />
                             Детальный просмотр
                           </Link>
                         </DropdownMenuItem>
-                        {/* --------------------------- */}
 
                         <DropdownMenuSeparator />
 
@@ -367,48 +352,45 @@ export default function PerformersTable() {
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="mt-4">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => handlePageChange(page - 1)}
-                className={
-                  page === 1
-                    ? "pointer-events-none opacity-50"
-                    : "cursor-pointer"
-                }
-              />
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => handlePageChange(page - 1)}
+              aria-disabled={page === 1}
+              className={
+                page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+              }
+            />
+          </PaginationItem>
+
+          {Array.from({ length: data?.meta.totalPages || 1 }).map((_, i) => (
+            <PaginationItem key={i}>
+              <PaginationLink
+                onClick={() => handlePageChange(i + 1)}
+                isActive={page === i + 1}
+                className="cursor-pointer"
+              >
+                {i + 1}
+              </PaginationLink>
             </PaginationItem>
+          ))}
 
-            {Array.from({ length: data?.meta.totalPages || 1 }).map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  onClick={() => handlePageChange(i + 1)}
-                  isActive={page === i + 1}
-                  className="cursor-pointer"
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => handlePageChange(page + 1)}
+              aria-disabled={page === data?.meta.totalPages}
+              className={
+                page === data?.meta.totalPages
+                  ? "pointer-events-none opacity-50"
+                  : "cursor-pointer"
+              }
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
 
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => handlePageChange(page + 1)}
-                className={
-                  page === data?.meta.totalPages
-                    ? "pointer-events-none opacity-50"
-                    : "cursor-pointer"
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
-
-      {/* --- Edit Status Modal --- */}
+      {/* --- EDIT MODAL --- */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -449,7 +431,7 @@ export default function PerformersTable() {
               Отмена
             </Button>
             <Button
-              type="submit"
+              type="button"
               onClick={handleSaveStatus}
               disabled={
                 isUpdating || newStatus === selectedPerformer?.moderation_status

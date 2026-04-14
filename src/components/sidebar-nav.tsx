@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -27,12 +28,25 @@ import {
   Calendar,
   Handshake,
   Ticket,
+  MessageCircleMore,
 } from "lucide-react";
+import { useChatStore } from "@/store/useChatStore"; // <-- Imported the store
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const userRole = session?.user?.role; // "admin", "support", etc.
+  const { data: session, status } = useSession();
+  const userRole = session?.user?.role;
+
+  // Global Chat State
+  const totalUnreadCount = useChatStore((state) => state.totalUnreadCount);
+  const connectSocket = useChatStore((state) => state.connectSocket);
+
+  // Initialize socket for the admin on mount so unread count starts tracking
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.id) {
+      connectSocket(session.user.id as string);
+    }
+  }, [status, session, connectSocket]);
 
   // Define Groups dynamically based on Role
   const menuGroups = [
@@ -86,6 +100,7 @@ export function SidebarNav() {
       label: "Коммуникация",
       items: [
         { href: "/blog", icon: Paperclip, label: "Блог" },
+        { href: "/chat", icon: MessageCircleMore, label: "Чат" },
         { href: "/notifications", icon: BellRing, label: "Уведомления" },
         { href: "/support", icon: Headset, label: "Поддержка запросов" },
       ],
@@ -118,20 +133,33 @@ export function SidebarNav() {
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
-              {group.items.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href}>
-                    {/* @next-codemod-error This Link previously used the now removed `legacyBehavior` prop, and has a child that might not be an anchor. The codemod bailed out of lifting the child props to the Link. Check that the child component does not render an anchor, and potentially move the props manually to Link. */}
-                    <SidebarMenuButton
-                      isActive={pathname === item.href}
-                      tooltip={item.label}
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
+              {group.items.map((item) => {
+                const isChat = item.label === "Чат";
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <Link href={item.href} className="w-full">
+                      <SidebarMenuButton
+                        isActive={pathname.startsWith(item.href)}
+                        tooltip={item.label}
+                        className="w-full flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </div>
+
+                        {/* UNREAD BADGE INDICATOR */}
+                        {isChat && totalUnreadCount > 0 && (
+                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+                            {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                          </span>
+                        )}
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroup>
         ))}
