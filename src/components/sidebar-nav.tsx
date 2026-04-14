@@ -23,14 +23,13 @@ import {
   Paperclip,
   CreditCard,
   Users,
-  Shield,
-  Square,
   Calendar,
   Handshake,
   Ticket,
   MessageCircleMore,
 } from "lucide-react";
-import { useChatStore } from "@/store/useChatStore"; // <-- Imported the store
+import { useChatStore } from "@/store/useChatStore";
+import { cn } from "@/utils/utils";
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -41,41 +40,24 @@ export function SidebarNav() {
   const totalUnreadCount = useChatStore((state) => state.totalUnreadCount);
   const connectSocket = useChatStore((state) => state.connectSocket);
 
-  // Initialize socket for the admin on mount so unread count starts tracking
   useEffect(() => {
     if (status === "authenticated" && session?.user?.id) {
       connectSocket(session.user.id as string);
     }
   }, [status, session, connectSocket]);
 
-  // Define Groups dynamically based on Role
   const menuGroups = [
     {
       label: "Platform",
-      items: [
-        {
-          href: "/dashboard",
-          icon: LayoutDashboard,
-          label: "Панель управления",
-        },
-      ],
+      items: [{ href: "/dashboard", icon: LayoutDashboard, label: "Главная" }],
     },
-    // Only Admin and Support can see this group
     ...(userRole === "administrator" || userRole === "support"
       ? [
           {
             label: "Администрирование",
             items: [
-              {
-                href: "/users/manage",
-                icon: Users,
-                label: "Управление пользователями",
-              },
-              {
-                href: "/bookings",
-                icon: Ticket,
-                label: "Бронирование",
-              },
+              { href: "/users/manage", icon: Users, label: "Пользователи" },
+              { href: "/bookings", icon: Ticket, label: "Бронирование" },
             ],
           },
         ]
@@ -102,61 +84,98 @@ export function SidebarNav() {
         { href: "/blog", icon: Paperclip, label: "Блог" },
         { href: "/chat", icon: MessageCircleMore, label: "Чат" },
         { href: "/notifications", icon: BellRing, label: "Уведомления" },
-        { href: "/support", icon: Headset, label: "Поддержка запросов" },
+        { href: "/support", icon: Headset, label: "Поддержка" },
       ],
     },
   ];
 
   return (
     <>
-      <SidebarHeader className="bg-slate-50">
+      <SidebarHeader className="bg-slate-50/50 pb-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Command className="size-4" />
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              className="hover:bg-transparent"
+            >
+              <Link href="/dashboard" className="gap-3">
+                <div className="flex aspect-square size-7 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
+                  <Command className="size-3.5" />
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-bold tracking-tight text-foreground">
                     Eventomir Admin
                   </span>
-                  <span className="truncate text-xs">Management Panel</span>
+                  <span className="truncate text-[10px] uppercase tracking-wider text-muted-foreground font-medium mt-0.5">
+                    Management Panel
+                  </span>
                 </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        {menuGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+
+      <SidebarContent className="px-2 custom-scrollbar">
+        {menuGroups.map((group, index) => (
+          <SidebarGroup
+            key={group.label}
+            className={cn("py-1.5", index === 0 ? "pt-0" : "")}
+          >
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-bold mb-1 px-2 h-auto group-data-[collapsible=icon]:hidden">
+              {group.label}
+            </SidebarGroupLabel>
+
             <SidebarMenu>
               {group.items.map((item) => {
                 const isChat = item.label === "Чат";
+                const isActive = pathname.startsWith(item.href);
 
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <Link href={item.href} className="w-full">
-                      <SidebarMenuButton
-                        isActive={pathname.startsWith(item.href)}
-                        tooltip={item.label}
-                        className="w-full flex items-center justify-between"
+                    <SidebarMenuButton
+                      asChild
+                      size="sm"
+                      isActive={isActive}
+                      tooltip={item.label}
+                      className={cn(
+                        "relative transition-all duration-200 rounded-md",
+                        isActive
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100",
+                      )}
+                    >
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-3"
                       >
-                        <div className="flex items-center gap-2">
-                          <item.icon />
-                          <span>{item.label}</span>
-                        </div>
+                        <item.icon
+                          className={cn(
+                            "size-4 shrink-0 transition-all",
+                            isActive
+                              ? "text-primary stroke-[2.5px]"
+                              : "text-slate-500",
+                          )}
+                        />
 
-                        {/* UNREAD BADGE INDICATOR */}
+                        <span className="truncate flex-1 group-data-[collapsible=icon]:hidden">
+                          {item.label}
+                        </span>
+
+                        {/* FULL BADGE: Visible only when expanded */}
                         {isChat && totalUnreadCount > 0 && (
-                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+                          <span className="ml-auto flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground shadow-sm group-data-[collapsible=icon]:hidden">
                             {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                           </span>
                         )}
-                      </SidebarMenuButton>
-                    </Link>
+
+                        {/* DOT BADGE: Visible only when collapsed */}
+                        {isChat && totalUnreadCount > 0 && (
+                          <span className="absolute top-1.5 right-1.5 hidden size-2 rounded-full bg-destructive group-data-[collapsible=icon]:block" />
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
