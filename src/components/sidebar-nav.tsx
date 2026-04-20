@@ -27,6 +27,7 @@ import {
   Handshake,
   Ticket,
   MessageCircleMore,
+  Tags,
 } from "lucide-react";
 import { useChatStore } from "@/store/useChatStore";
 import { cn } from "@/utils/utils";
@@ -75,6 +76,7 @@ export function SidebarNav() {
       items: [
         { href: "/settings", icon: Settings, label: "Настройки" },
         { href: "/pricing", icon: CreditCard, label: "Тарифы" },
+        { href: "/promo", icon: Tags, label: "Промо-код" },
         { href: "/events", icon: Calendar, label: "Ближайшие" },
       ],
     },
