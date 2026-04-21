@@ -11,7 +11,6 @@ interface ChatState {
   refreshTrigger: number;
   typingUser: string | null;
 
-  // Actions
   connectSocket: (userId: string) => void;
   disconnectSocket: () => void;
   syncUnreadCount: () => Promise<void>;
@@ -23,7 +22,6 @@ interface ChatState {
   decreaseUnreadCount: (amount: number) => void;
 }
 
-// Helper for notification sounds
 const playNotificationSound = () => {
   if (typeof window !== "undefined") {
     const audio = new Audio("/sounds/notification.wav");
@@ -56,28 +54,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const API_URL =
       process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8800";
 
-    // Initialize socket with authentication
     const socket = io(API_URL, {
       transports: ["websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
-      auth: { userId }, // Send userId securely during handshake
+      auth: { userId },
     });
-
-    // --- SOCKET EVENT LISTENERS ---
 
     socket.on("connect", () => {
       console.log("✅ Socket Connected");
       get().syncUnreadCount();
     });
 
-    // Receive the initial list of online users directly upon connection
     socket.on("online_users_list", (onlineArray: string[]) => {
       set({ onlineUsers: new Set(onlineArray) });
     });
 
     socket.on("receive_message", (newMessage) => {
-      // Only increment unread & play sound if we are NOT currently looking at this specific chat
+      // If we are NOT currently chatting with the sender, bump the unread badge
       if (get().activeChatId !== newMessage.senderId) {
         get().syncUnreadCount();
         playNotificationSound();
@@ -86,23 +80,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set((state) => ({ refreshTrigger: state.refreshTrigger + 1 }));
     });
 
-    // Triggered when the partner reads the messages you sent
     socket.on("messages_read_by_recipient", () => {
       set((state) => ({ refreshTrigger: state.refreshTrigger + 1 }));
     });
 
-    // Triggered to sync read status across multiple devices of the SAME user
     socket.on("read_status_synced", () => {
       get().syncUnreadCount();
       set((state) => ({ refreshTrigger: state.refreshTrigger + 1 }));
     });
 
-    // Triggered when a message is deleted
     socket.on("message_deleted", () => {
       set((state) => ({ refreshTrigger: state.refreshTrigger + 1 }));
     });
 
-    // Handle real-time presence updates (login/logout)
     socket.on(
       "user_status_changed",
       ({ userId: changedUserId, isOnline, lastSeen }) => {
@@ -112,7 +102,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
           if (isOnline) {
             newSet.add(changedUserId);
-            // Optional: remove them from lastSeenMap if they are online
             delete newLastSeenMap[changedUserId];
           } else {
             newSet.delete(changedUserId);
@@ -151,7 +140,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  // Bulk sync from REST API calls (e.g., when loading the chat list page)
   setOnlineStatusBulk: (
     onlineIds: string[],
     lastSeenData: Record<string, string>,
@@ -164,13 +152,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   syncUnreadCount: async () => {
     try {
-      // Replaced raw axios call with your custom apiRequest
-      // The apiClient automatically prepends the baseURL and handles the Bearer token
       const data = await apiRequest<{ totalUnread?: number; count?: number }>({
         method: "GET",
         url: "/api/chats/unread-count",
       });
-
       set({ totalUnreadCount: data.totalUnread || data.count || 0 });
     } catch (error) {
       console.error("❌ Error syncing unread count:", error);

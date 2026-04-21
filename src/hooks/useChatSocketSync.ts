@@ -16,8 +16,12 @@ export const useChatSocketSync = (
     const handleReceiveMessage = (newMessage: ChatMessage) => {
       if (newMessage.senderId === partnerId || newMessage.senderId === userId) {
         queryClient.setQueryData(["chatHistory", partnerId], (oldData: any) => {
-          if (!oldData || !oldData.pages) return oldData;
+          // Safety fallback if cache is empty
+          if (!oldData || !oldData.pages) {
+            return { pages: [[newMessage]], pageParams: [""] };
+          }
 
+          // Check if message already exists (prevent duplicates)
           const messageExists = oldData.pages.some((page: ChatMessage[]) =>
             page.some(
               (m) =>
@@ -29,17 +33,17 @@ export const useChatSocketSync = (
 
           const newPages = [...oldData.pages];
 
-          // FIX: Handle case where pages array is empty
           if (newPages.length === 0) {
             newPages.push([newMessage]);
           } else {
-            const lastIdx = newPages.length - 1;
-            newPages[lastIdx] = [...newPages[lastIdx], newMessage];
+            // Prepend/Append safely to the first page
+            newPages[0] = [...newPages[0], newMessage];
           }
 
           return { ...oldData, pages: newPages };
         });
 
+        // Auto-read if we are currently looking at the chat
         if (newMessage.senderId === partnerId) {
           socket.emit("mark_messages_read", {
             readerId: userId,
@@ -55,7 +59,7 @@ export const useChatSocketSync = (
       message: ChatMessage;
     }) => {
       queryClient.setQueryData(["chatHistory", partnerId], (oldData: any) => {
-        if (!oldData) return oldData;
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map((page: ChatMessage[]) =>
@@ -73,10 +77,10 @@ export const useChatSocketSync = (
       });
     };
 
-    // 3. MESSAGE DELETED (NEW: Hides message if partner deletes it)
+    // 3. MESSAGE DELETED
     const handleMessageDeleted = ({ messageId }: { messageId: string }) => {
       queryClient.setQueryData(["chatHistory", partnerId], (oldData: any) => {
-        if (!oldData) return oldData;
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map((page: ChatMessage[]) =>
@@ -86,18 +90,16 @@ export const useChatSocketSync = (
       });
     };
 
-    // 4. MESSAGES READ (NEW: Turns grey ticks to blue double-ticks)
+    // 4. MESSAGES READ
     const handleMessagesRead = ({ readerId }: { readerId: string }) => {
       if (readerId === partnerId) {
         queryClient.setQueryData(["chatHistory", partnerId], (oldData: any) => {
-          if (!oldData) return oldData;
+          if (!oldData || !oldData.pages) return oldData;
           return {
             ...oldData,
             pages: oldData.pages.map((page: ChatMessage[]) =>
               page.map((m) =>
-                m.senderId === userId && !m.isRead
-                  ? { ...m, isRead: true } // Update to read
-                  : m,
+                m.senderId === userId && !m.isRead ? { ...m, isRead: true } : m,
               ),
             ),
           };
@@ -105,13 +107,11 @@ export const useChatSocketSync = (
       }
     };
 
-    // Register Listeners
     socket.on("receive_message", handleReceiveMessage);
     socket.on("message_confirmed", handleMessageConfirmed);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("messages_read_by_recipient", handleMessagesRead);
 
-    // Cleanup Listeners on unmount
     return () => {
       socket.off("receive_message", handleReceiveMessage);
       socket.off("message_confirmed", handleMessageConfirmed);

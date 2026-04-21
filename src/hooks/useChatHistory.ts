@@ -14,8 +14,6 @@ export interface ChatMessage {
   // --- UI & State Modifiers ---
   isOptimistic?: boolean;
   tempId?: string;
-
-  // --- ADD THIS BLOCK TO FIX THE ERROR ---
   replyTo?: {
     id: string;
     text: string;
@@ -27,29 +25,40 @@ export const useChatHistory = (userId: string, partnerId: string) => {
   return useInfiniteQuery<ChatMessage[]>({
     queryKey: ["chatHistory", partnerId],
     queryFn: async ({ pageParam }) => {
-      const response = await apiRequest<ChatMessage[]>({
-        url: "/api/chat/history",
-        method: "GET",
-        params: {
-          userId1: userId,
-          userId2: partnerId,
-          cursor: pageParam ? pageParam : undefined,
-          limit: 20,
-        },
-      });
-      // Ensure we always return an array even if the API fails
-      return response || [];
+      try {
+        // 🚨 FIX 1: URL MUST BE PLURAL "/api/chats/history" to match server.js
+        const response = await apiRequest<any>({
+          url: "/api/chats/history",
+          method: "GET",
+          params: {
+            userId1: userId,
+            userId2: partnerId,
+            cursor: pageParam || undefined,
+            limit: 20,
+          },
+        });
+
+        // 🚨 FIX 2: Robustly extract the array regardless of backend structure
+        const messages = Array.isArray(response)
+          ? response
+          : response?.messages || response?.data || response?.items || [];
+
+        return messages;
+      } catch (error) {
+        console.error("Failed to fetch chat history:", error);
+        return []; // Fail safely
+      }
     },
     initialPageParam: "",
     getNextPageParam: (lastPage) => {
-      // FIX: If the database is empty [] or we reached the end (e.g. 5 messages < 20)
-      // we MUST return undefined to stop the loader.
+      // FIX 3: If the page is empty or less than the limit, we reached the end
       if (!lastPage || lastPage.length < 20) {
         return undefined;
       }
 
-      // Use the oldest message ID as the next cursor
-      return lastPage[0]?.id;
+      // FIX 4: The cursor MUST be the OLDEST message in the current batch.
+      // If the API returns newest-first, the oldest is at the end of the array.
+      return lastPage[lastPage.length - 1]?.id;
     },
   });
 };

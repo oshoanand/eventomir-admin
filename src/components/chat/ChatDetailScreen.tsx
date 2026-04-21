@@ -726,10 +726,12 @@ export default function ChatDetailScreen({
 
   return (
     <motion.div
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
-      className="fixed inset-0 bg-background z-[100] flex flex-col h-full overflow-hidden"
+      initial={{ x: "20%", opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: "20%", opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      // 🚨 FIX: Replaced "fixed inset-0 z-[100]" with standard flexbox layout
+      className="flex-1 flex flex-col h-full bg-background relative overflow-hidden"
     >
       {/* 1. HEADER */}
       <ChatHeader
@@ -783,7 +785,7 @@ export default function ChatDetailScreen({
         <div ref={messagesEndRef} className="h-1" />
       </main>
 
-      {/* 3. CONTEXT MENU */}
+      {/* 3. CONTEXT MENU (Floating, rendered when long-pressed) */}
       {selectedMessage && menuPosition && (
         <ChatContextMenu
           position={menuPosition}
@@ -800,6 +802,7 @@ export default function ChatDetailScreen({
 
       {/* 4. FOOTER & INPUT AREA */}
       <footer className="p-3 bg-background border-t shrink-0 flex flex-col pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        {/* Reply Preview Bar */}
         {replyingTo && (
           <div className="mb-2 p-2 bg-muted/30 rounded-lg border-l-4 border-primary flex items-center justify-between">
             <div className="flex-1 min-w-0 pr-2 pl-2">
@@ -819,6 +822,7 @@ export default function ChatDetailScreen({
           </div>
         )}
 
+        {/* Form Controls */}
         <form
           onSubmit={handleSendText}
           className="flex gap-2 items-center relative"
@@ -847,7 +851,11 @@ export default function ChatDetailScreen({
             ref={inputRef}
             className="flex-1 bg-muted/40 rounded-full px-5 py-3 text-[15px] outline-none focus:ring-2 focus:ring-primary/50 transition-shadow border border-transparent"
             placeholder="Сообщение..."
-            onChange={() => socket?.emit("typing", { receiverId: partnerId })}
+            onChange={() =>
+              socket?.emit("typing", {
+                receiverId: partnerId,
+              })
+            }
           />
 
           <button
