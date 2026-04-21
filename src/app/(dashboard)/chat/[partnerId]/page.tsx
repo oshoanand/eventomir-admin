@@ -11,7 +11,7 @@ import ChatDetailScreen from "@/components/chat/ChatDetailScreen";
 
 export default function ChatRoomPage() {
   const { partnerId } = useParams() as { partnerId: string };
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   const [partnerName, setPartnerName] = useState<string>("Загрузка...");
@@ -29,7 +29,6 @@ export default function ChatRoomPage() {
     // Fetch the partner's basic info so we can display their name in the header
     const fetchPartnerInfo = async () => {
       try {
-        // Replaced raw axios with your custom apiRequest to automatically attach Bearer tokens
         const data = await apiRequest<{ name?: string }>({
           method: "GET",
           url: `/api/users/${partnerId}`,
@@ -48,22 +47,20 @@ export default function ChatRoomPage() {
   }, [status, partnerId, router]);
 
   const handleBack = () => {
-    // Navigate back to the chat list
     router.push("/chat");
   };
 
-  // Show a loading state while fetching auth status or partner name
   if (status === "loading" || isLoading) {
     return (
       <div className="flex flex-col h-[100dvh] items-center justify-center bg-background">
         <Loader2 className="animate-spin text-primary w-10 h-10 mb-4" />
-        <p className="text-muted-foreground font-medium">Подключение...</p>
+        <p className="text-muted-foreground font-medium">
+          Подключение к чату...
+        </p>
       </div>
     );
   }
 
-  // Note: Your ChatDetailScreen uses `fixed inset-0`, so it will automatically
-  // take up the full screen and cover any underlying layout components (like BottomNav).
   return (
     <ChatDetailScreen
       partnerId={partnerId}

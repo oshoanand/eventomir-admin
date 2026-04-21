@@ -28,6 +28,7 @@ import {
   Ticket,
   MessageCircleMore,
   Tags,
+  ChartColumnBigIcon,
 } from "lucide-react";
 import { useChatStore } from "@/store/useChatStore";
 import { cn } from "@/utils/utils";
@@ -78,6 +79,7 @@ export function SidebarNav() {
         { href: "/pricing", icon: CreditCard, label: "Тарифы" },
         { href: "/promo", icon: Tags, label: "Промо-код" },
         { href: "/events", icon: Calendar, label: "Ближайшие" },
+        { href: "/analytics", icon: ChartColumnBigIcon, label: "Аналитика" },
       ],
     },
     {
