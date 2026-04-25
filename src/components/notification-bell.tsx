@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   Handshake,
   Info,
-  UserPlus, // 🚨 Added UserPlus icon for moderation events
+  UserPlus,
 } from "lucide-react";
 import { useNotification } from "@/components/providers/NotificationProvider";
 import { NotificationItem } from "@/types/notification";
@@ -81,43 +81,7 @@ const NotificationBell: React.FC = () => {
             </p>
           ),
         };
-      case "TOKEN":
-        return {
-          icon: <Package size={16} />,
-          colorClass: "bg-blue-100 text-blue-600",
-          title: "Новый токен",
-          link: "/tokens",
-          body: (
-            <>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Код:{" "}
-                <span className="font-mono bg-gray-100 px-1 rounded">
-                  {notif.tokenCode}
-                </span>
-              </p>
-              <p className="text-[10px] text-gray-400 mt-1">
-                Заказ: {notif.orderNumber}
-              </p>
-            </>
-          ),
-        };
-      case "JOB":
-        return {
-          icon: <Truck size={16} />,
-          colorClass: "bg-orange-100 text-orange-600",
-          title: "Новая заявка (Работа)",
-          link: "/jobs",
-          body: (
-            <>
-              <p className="text-xs text-gray-600 mt-0.5 truncate">
-                {notif.location}
-              </p>
-              <p className="text-xs font-medium text-green-600 mt-1">
-                {notif.cost}₽
-              </p>
-            </>
-          ),
-        };
+
       case "PARTNER_REQUEST":
         return {
           icon: <Handshake size={16} />,
@@ -149,16 +113,20 @@ const NotificationBell: React.FC = () => {
   return (
     <div className="relative" ref={dropdownRef}>
       {/* --- Bell Icon Button --- */}
+
       <button
         onClick={handleBellClick}
-        className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors focus:outline-none"
+        aria-label="Уведомления"
+        className="relative group flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
       >
-        <Bell size={24} />
+        <Bell
+          className="h-4 w-4 text-primary transition-transform duration-300 group-hover:scale-110"
+          strokeWidth={2}
+        />
 
-        {/* Red Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full min-w-[18px]">
-            {unreadCount > 99 ? "99+" : unreadCount}
+          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-extrabold text-white shadow-sm ring-2 ring-background animate-in zoom-in duration-300">
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>

@@ -123,7 +123,7 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="flex flex-col gap-6 px-2 pt-2 w-full mx-auto animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -131,7 +131,7 @@ export default function SupportPage() {
             Служба поддержки
           </h2>
           <p className="text-muted-foreground mt-1">
-            Управление обращениями и контроль качества сервиса (SLA).
+            Управление обращениями и контроль качества сервиса
           </p>
         </div>
         <Button

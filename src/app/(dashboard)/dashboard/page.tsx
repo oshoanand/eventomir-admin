@@ -31,7 +31,7 @@ export default function AnalyticsDashboard() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
+    <div className="px-6 pt-4 w-full mx-auto animate-in fade-in duration-500">
       <h1 className="text-3xl font-bold mb-8 tracking-tight">
         Аналитика и Безопасность
       </h1>

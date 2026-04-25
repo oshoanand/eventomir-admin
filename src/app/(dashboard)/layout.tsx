@@ -8,7 +8,7 @@ import {
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Separator } from "@/components/ui/separator";
 import NotificationBell from "@/components/notification-bell";
-import { UserNav } from "@/components/user-nav"; // Import the new component
+import { UserNav } from "@/components/user-nav";
 
 export default function DashboardLayout({
   children,

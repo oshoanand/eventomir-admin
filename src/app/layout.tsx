@@ -5,10 +5,10 @@ import { Providers } from "@/components/providers/Providers";
 
 // 1. Next.js Optimized Font Loading
 const inter = Inter({
-  subsets: ["latin", "cyrillic"], // Ensures Russian characters render perfectly
+  subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
-  variable: "--font-inter", // Exposes CSS variable if you need it in Tailwind
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {

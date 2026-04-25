@@ -58,7 +58,7 @@ export function SidebarNav() {
           {
             label: "Администрирование",
             items: [
-              { href: "/users/manage", icon: Users, label: "Пользователи" },
+              { href: "/users", icon: Users, label: "Пользователи" },
               { href: "/bookings", icon: Ticket, label: "Бронирование" },
             ],
           },
@@ -67,8 +67,8 @@ export function SidebarNav() {
     {
       label: "Пользователь",
       items: [
-        { href: "/users/performers", icon: User, label: "Исполнители" },
-        { href: "/users/customers", icon: User, label: "Заказчик" },
+        { href: "/performers", icon: User, label: "Исполнители" },
+        { href: "/customers", icon: User, label: "Заказчик" },
         { href: "/partners", icon: Handshake, label: "Партнеры" },
       ],
     },
@@ -158,7 +158,7 @@ export function SidebarNav() {
                           className={cn(
                             "size-4 shrink-0 transition-all",
                             isActive
-                              ? "text-primary stroke-[2.5px]"
+                              ? "text-white stroke-[2.5px]"
                               : "text-slate-500",
                           )}
                         />

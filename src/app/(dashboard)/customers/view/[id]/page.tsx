@@ -1,20 +1,22 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { apiRequest } from "@/utils/api-client";
 
+// Hooks
+import { useCustomerDetailsQuery } from "@/services/customer";
+import { useToast } from "@/hooks/use-toast";
+
 // UI Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
 
 // Icons
 import {
@@ -29,44 +31,7 @@ import {
   CheckCircle2,
   ListOrdered,
 } from "lucide-react";
-
-// --- Data Interfaces ---
-interface CustomerBooking {
-  id: string;
-  status: "pending" | "confirmed" | "cancelled" | "completed";
-  date: string;
-  performerName: string;
-  performerEmail: string;
-  price: number;
-  details: string;
-}
-
-interface PaidRequest {
-  id: string;
-  status: "pending" | "paid" | "failed";
-  createdAt: string;
-  amount: number;
-  description: string;
-}
-
-interface AdminCustomerDetails {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  city: string;
-  profilePicture: string;
-  moderationStatus: string;
-  status: string;
-  createdAt: string;
-  bookings: CustomerBooking[];
-  paidRequests: PaidRequest[];
-  stats: {
-    totalBookings: number;
-    confirmedBookings: number;
-    totalPaidRequests: number;
-  };
-}
+import { formatPhoneNumber } from "@/utils/helper";
 
 export default function CustomerDetailsPage() {
   const params = useParams();
@@ -75,37 +40,24 @@ export default function CustomerDetailsPage() {
   const id = params.id as string;
 
   // --- Data Fetching ---
-  const {
-    data: customer,
-    isLoading,
-    isError,
-  } = useQuery<AdminCustomerDetails>({
-    queryKey: ["admin", "customer", id],
-    queryFn: async () => {
-      return await apiRequest({
-        method: "get",
-        url: `/api/admin/customers/${id}`,
-      });
-    },
-    enabled: !!id,
-  });
+  const { data: customer, isLoading, isError } = useCustomerDetailsQuery(id);
 
   // --- Handlers ---
   const handleStartChat = async () => {
     toast({
-      title: "Создание чата...",
-      description: "Пожалуйста, подождите. Идет настройка комнаты.",
+      title: "Подключение...",
+      description: "Открываем диалог с заказчиком.",
     });
 
     try {
-      const res = await apiRequest<{ id: string }>({
+      const res = await apiRequest<{ partnerId: string }>({
         method: "POST",
-        url: "/api/chats",
-        data: { participantId: id },
+        url: "/api/chats/init",
+        data: { partnerId: id },
       });
 
-      if (res && res.id) {
-        router.push(`/chat/${res.id}`);
+      if (res && res.partnerId) {
+        router.push(`/chat/${res.partnerId}`);
       }
     } catch (error) {
       toast({
@@ -122,7 +74,7 @@ export default function CustomerDetailsPage() {
   // --- Loading State ---
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse p-4 md:p-8">
+      <div className="space-y-6 animate-pulse p-4 md:p-8 max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-4">
           <Skeleton className="h-10 w-10 rounded-full" />
           <Skeleton className="h-8 w-64" />
@@ -155,82 +107,74 @@ export default function CustomerDetailsPage() {
 
   return (
     <div className="space-y-6 pb-10 p-4 md:p-8 max-w-7xl mx-auto w-full">
-      {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
             size="icon"
             onClick={() => router.back()}
-            className="rounded-full"
+            className="rounded-full shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight flex flex-wrap items-center gap-3">
               Профиль заказчика
               <Badge
                 variant={
-                  customer.status === "active" ? "default" : "destructive"
-                }
-                className={
-                  customer.status === "active"
-                    ? "bg-green-500 hover:bg-green-600"
-                    : ""
-                }
-              >
-                {customer.status === "active" ? "Активен" : "Заблокирован"}
-              </Badge>
-              <Badge
-                variant={
-                  customer.moderationStatus === "approved"
+                  customer.moderationStatus === "APPROVED"
                     ? "default"
                     : "secondary"
                 }
               >
-                {customer.moderationStatus === "approved"
+                {customer.moderationStatus === "APPROVED"
                   ? "Модерация пройдена"
-                  : customer.moderationStatus === "rejected"
+                  : customer.moderationStatus === "REJECTED"
                     ? "Отклонен"
                     : "Ожидает модерации"}
               </Badge>
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 truncate">
               ID: {customer.id}
             </p>
           </div>
         </div>
 
-        <Button onClick={handleStartChat} className="shrink-0">
+        <Button onClick={handleStartChat} className="shrink-0 w-full md:w-auto">
           <MessageSquare className="mr-2 h-4 w-4" />
           Написать сообщение
         </Button>
       </div>
 
       {/* --- MAIN PROFILE CARD --- */}
-      <Card className="overflow-hidden border-none shadow-md">
-        <div className="h-32 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-800 dark:to-slate-900 relative" />
+      <Card className="overflow-hidden border border-border shadow-sm">
+        <div className="h-24 sm:h-32 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-800 dark:to-slate-900 relative" />
         <CardContent className="relative pt-0 sm:pt-0">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:-mt-10 mb-6">
-            <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-4 border-background shadow-lg bg-white">
-              <AvatarImage src={customer.profilePicture} />
+          <div className="flex flex-col sm:flex-row sm:items-end gap-6 -mt-10 mb-6">
+            <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-4 border-background shadow-lg bg-white shrink-0">
+              <AvatarImage src={customer.image || ""} />
               <AvatarFallback className="text-3xl bg-primary/10 text-primary font-bold">
-                {customer.name?.charAt(0).toUpperCase()}
+                {customer.name?.charAt(0).toUpperCase() || "CU"}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 pb-2">
-              <h2 className="text-3xl font-bold">{customer.name}</h2>
+            <div className="flex-1 pb-2 min-w-0">
+              <h2 className="text-2xl sm:text-3xl font-bold truncate">
+                {customer.name || "Без имени"}
+              </h2>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="h-4 w-4 text-primary/70" />{" "}
                   {customer.city || "Город не указан"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Mail className="h-4 w-4 text-primary/70" /> {customer.email}
+                <span className="flex items-center gap-1.5 truncate max-w-[200px] sm:max-w-none">
+                  <Mail className="h-4 w-4 text-primary/70 shrink-0" />{" "}
+                  {customer.email}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Phone className="h-4 w-4 text-primary/70" />{" "}
-                  {customer.phone || "Телефон не указан"}
+                  {customer.phone
+                    ? formatPhoneNumber(customer.phone)
+                    : "Телефон не указан"}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Activity className="h-4 w-4 text-primary/70" />
@@ -246,10 +190,10 @@ export default function CustomerDetailsPage() {
       </Card>
 
       {/* --- QUICK STATS GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
+            <div className="p-3 bg-blue-100 text-blue-600 rounded-full shrink-0">
               <ListOrdered className="h-6 w-6" />
             </div>
             <div>
@@ -264,7 +208,7 @@ export default function CustomerDetailsPage() {
         </Card>
         <Card>
           <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-green-100 text-green-600 rounded-full">
+            <div className="p-3 bg-green-100 text-green-600 rounded-full shrink-0">
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <div>
@@ -279,7 +223,7 @@ export default function CustomerDetailsPage() {
         </Card>
         <Card>
           <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
+            <div className="p-3 bg-purple-100 text-purple-600 rounded-full shrink-0">
               <CreditCard className="h-6 w-6" />
             </div>
             <div>
@@ -314,7 +258,7 @@ export default function CustomerDetailsPage() {
               {!customer.bookings || customer.bookings.length === 0 ? (
                 <div className="text-center py-16 flex flex-col items-center">
                   <CalendarCheck className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                  <h3 className="text-lg font-medium text-foreground">
                     Нет бронирований
                   </h3>
                   <p className="text-muted-foreground mt-1">
@@ -328,23 +272,23 @@ export default function CustomerDetailsPage() {
                       key={booking.id}
                       className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-muted/30 transition-colors"
                     >
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <Badge
                             variant={
-                              booking.status === "confirmed" ||
-                              booking.status === "completed"
+                              booking.status === "CONFIRMED" ||
+                              booking.status === "COMPLETED"
                                 ? "default"
-                                : booking.status === "pending"
+                                : booking.status === "PENDING"
                                   ? "secondary"
                                   : "destructive"
                             }
                           >
-                            {booking.status === "confirmed"
+                            {booking.status === "CONFIRMED"
                               ? "Подтверждено"
-                              : booking.status === "completed"
+                              : booking.status === "COMPLETED"
                                 ? "Завершено"
-                                : booking.status === "pending"
+                                : booking.status === "PENDING"
                                   ? "Ожидает"
                                   : "Отменено"}
                           </Badge>
@@ -355,27 +299,27 @@ export default function CustomerDetailsPage() {
                             })}
                           </span>
                         </div>
-                        <p className="font-semibold text-base mt-2">
+                        <p className="font-semibold text-base mt-2 truncate">
                           Исполнитель:{" "}
                           <span className="text-primary">
                             {booking.performerName}
                           </span>
                         </p>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1 truncate">
                           {booking.performerEmail}
                         </p>
-                        <div className="text-sm mt-3 text-gray-600 dark:text-gray-300 bg-muted/50 p-3 rounded-lg border">
-                          <span className="font-semibold block mb-1">
+                        <div className="text-sm mt-3 text-muted-foreground bg-muted/50 p-3 rounded-lg border">
+                          <span className="font-semibold block mb-1 text-foreground">
                             Детали заказа:
                           </span>
                           {booking.details || "Детали не указаны"}
                         </div>
                       </div>
-                      <div className="md:text-right shrink-0 bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border">
+                      <div className="md:text-right shrink-0 bg-muted/20 p-4 rounded-xl border">
                         <span className="text-xs text-muted-foreground block uppercase tracking-wider font-semibold mb-1">
                           Стоимость
                         </span>
-                        <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                        <span className="text-xl font-bold text-foreground">
                           {booking.price
                             ? formatCurrency(booking.price)
                             : "Не указана"}
@@ -396,7 +340,7 @@ export default function CustomerDetailsPage() {
               {!customer.paidRequests || customer.paidRequests.length === 0 ? (
                 <div className="text-center py-16 flex flex-col items-center">
                   <CreditCard className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                  <h3 className="text-lg font-medium text-foreground">
                     Нет платных запросов
                   </h3>
                   <p className="text-muted-foreground mt-1">
@@ -410,25 +354,30 @@ export default function CustomerDetailsPage() {
                       key={request.id}
                       className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-muted/30 transition-colors"
                     >
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <Badge
                             variant={
-                              request.status === "paid"
+                              request.status?.toLowerCase() === "paid" ||
+                              request.status === "COMPLETED"
                                 ? "default"
-                                : request.status === "pending"
+                                : request.status?.toLowerCase() === "pending" ||
+                                    request.status === "PENDING"
                                   ? "secondary"
                                   : "destructive"
                             }
                             className={
-                              request.status === "paid"
+                              request.status?.toLowerCase() === "paid" ||
+                              request.status === "COMPLETED"
                                 ? "bg-green-500 hover:bg-green-600"
                                 : ""
                             }
                           >
-                            {request.status === "paid"
+                            {request.status?.toLowerCase() === "paid" ||
+                            request.status === "COMPLETED"
                               ? "Оплачено"
-                              : request.status === "pending"
+                              : request.status?.toLowerCase() === "pending" ||
+                                  request.status === "PENDING"
                                 ? "В обработке"
                                 : "Ошибка"}
                           </Badge>
@@ -440,9 +389,11 @@ export default function CustomerDetailsPage() {
                             )}
                           </span>
                         </div>
-                        <p className="font-medium mt-2">
+                        <p className="font-medium mt-2 truncate">
                           Назначение:{" "}
-                          {request.description || "Оплата услуг платформы"}
+                          <span className="text-muted-foreground">
+                            {request.description || "Оплата услуг платформы"}
+                          </span>
                         </p>
                         <p className="text-xs text-muted-foreground mt-1 font-mono">
                           ID Транзакции: {request.id}

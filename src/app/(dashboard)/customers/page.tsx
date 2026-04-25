@@ -1,6 +1,6 @@
 import CustomersTable from "@/components/customers-table";
 
-export default function PerformersPage() {
+export default function CustomerPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

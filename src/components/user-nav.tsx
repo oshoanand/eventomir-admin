@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Settings, User, ChevronsUpDown } from "lucide-react";
+import { LogOut, Settings, User, ChevronsUpDown, UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,17 +24,15 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage
-              src={session?.user?.image || "/images/no-image.webp"}
-              alt={session?.user?.name || "User"}
-            />
-            <AvatarFallback>
-              {session?.user?.name?.charAt(0).toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
+        <button
+          aria-label="Уведомления"
+          className="relative group flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-all duration-300 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
+        >
+          <UserIcon
+            className="h-4 w-4 text-primary transition-transform duration-300 group-hover:scale-110"
+            strokeWidth={2}
+          />
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">

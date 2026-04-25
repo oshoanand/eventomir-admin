@@ -1,14 +1,28 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "@/utils/prisma";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+
+function decodeJwt(token: string) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map(function (c) {
+          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    return null;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 Days
   },
   providers: [
     CredentialsProvider({
@@ -27,108 +41,98 @@ export const authOptions: NextAuthOptions = {
             );
           }
 
-          // 2. Find user in database by EMAIL ONLY
-          // We removed the 'role' constraint here to allow us to give a specific error message later
-          const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email,
+          // 2. Call the Node.js Backend API
+          const backendUrl =
+            process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8800";
+
+          const res = await fetch(`${backendUrl}/api/auth/admin/login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password,
+            }),
           });
 
-          // 3. Verify user exists and has a password
-          if (!user || !user.password) {
-            throw new Error("Неверный адрес электронной почты или пароль!");
+          const data = await res.json();
+
+          // 3. Handle Backend Errors
+          if (!res.ok) {
+            throw new Error(
+              data.message || "Неверный адрес электронной почты или пароль!",
+            );
           }
 
-          // 4. Verify password
-          const isValidPassword = await bcrypt.compare(
-            credentials.password,
-            user.password,
-          );
+          const { token, user } = data;
 
-          if (!isValidPassword) {
-            throw new Error("Неверный адрес электронной почты или пароль!");
+          if (!token) {
+            throw new Error(
+              "Ошибка сервера: недействительный ответ авторизации.",
+            );
           }
 
-          // 5. ROLE CHECK (The new requirement)
-          // Check if the user has one of the allowed roles
-          const allowedRoles = ["administrator", "support"]; // Adjust "administrator" based on your exact DB string
-          console.log(allowedRoles);
-          if (!user.role || !allowedRoles.includes(user.role)) {
-            // This specific error message will be sent to the client
+          // 4. Decode token to extract ID and Role securely
+          const decodedToken = decodeJwt(token);
+
+          if (!decodedToken || decodedToken.id === undefined) {
+            throw new Error("Ошибка сервера: недействительный токен.");
+          }
+
+          const userRole =
+            decodedToken.role !== undefined ? decodedToken.role : "";
+
+          // 5. Role Authorization
+          const allowedRoles = ["administrator", "support"];
+
+          if (!userRole || !allowedRoles.includes(userRole)) {
             throw new Error(
               "Доступ запрещен! Требуются права Администратора или Поддержки.",
             );
           }
 
-          // 6. Generate Custom Token (If you need this for external API calls)
-          const secret = process.env.NEXTAUTH_SECRET!;
-          const token = jwt.sign(
-            {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              role: user.role,
-              iat: Date.now() / 1000,
-              exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-            },
-            secret,
-            {
-              algorithm: "HS256",
-            },
-          );
-
-          // 7. Return user object
+          // 6. 🚨 FIX: Include id and role mapped from the decoded token
           return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
+            id: decodedToken.id,
+            role: userRole,
+            name: user?.name || "",
+            email: user?.email || credentials.email,
+            image: user?.image || null,
             accessToken: token,
-          };
+          } as any;
         } catch (error: any) {
-          // 1. Log the actual technical error to the server console for the developer
-          console.error("Authorize Error:", error);
-
-          // 2. Determine if it's an error we manually threw above (User-friendly)
-          // or a system error (Prisma/DB crash)
-          const isCustomError =
-            error.message ===
-              "Требуется указать адрес электронной почты и пароль" ||
-            error.message === "Неверный адрес электронной почты или пароль!";
-
-          if (isCustomError) {
-            throw new Error(error.message);
-          }
-
-          // 3. If it's a database/prisma error, mask it with a generic message
-          throw new Error("Проверьте свой адрес электронной почты еще раз!");
+          console.error("NextAuth Authorize Error:", error.message);
+          throw new Error(error.message);
         }
       },
     }),
   ],
 
   callbacks: {
+    // 6. Store Backend Token in NextAuth JWT
     async jwt({ token, user }) {
+      // User object is only available on initial sign-in
       if (user) {
         token.id = user.id;
-        token.image = user.image ? user.image.toString() : null;
-        token.name = user.name ? user.name.toString() : "";
-        token.email = user.email ? user.email.toString() : "";
-        token.accessToken = user.accessToken;
-        token.role = user.role;
+        token.name = user.name;
+        token.email = user.email;
+        token.role = (user as any).role;
+        token.image = user.image;
+        token.accessToken = (user as any).accessToken;
       }
       return token;
     },
+
+    // 7. Expose Backend Token to the Client Session
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.image = token.image as string;
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.role = token.role as string;
-        session.user.accessToken = token.accessToken as string;
+        session.user.image = token.image as string | null;
+        (session.user as any).accessToken = token.accessToken as string;
       }
       return session;
     },

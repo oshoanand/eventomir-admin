@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -34,6 +35,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   MoreHorizontal,
   Loader2,
   X,
@@ -41,127 +50,130 @@ import {
   UserCheck,
   Trash2,
   Eye,
+  Search,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ModerationStatusCell } from "@/components/ModerationStatusCell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationPrevious,
-  PaginationLink,
-  PaginationNext,
-} from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhoneNumber, formatDate } from "@/utils/helper";
 import { apiRequest } from "@/utils/api-client";
-import Link from "next/link";
 
-// Queries and mutations
 import {
   useCustomersQuery,
   useUpdateModerationMutation,
   Customer,
-} from "@/data/use-customers";
-
-// 1. IMPORT ZUSTAND CHAT STORE
+} from "@/services/customer";
 import { useChatStore } from "@/store/useChatStore";
 
 export default function CustomersTable() {
   const { toast } = useToast();
   const router = useRouter();
-
-  // Fetch session to authenticate the socket
   const { data: session, status } = useSession();
 
-  // 2. GET STATE AND ACTIONS FROM ZUSTAND
+  // Socket & Real-time State
   const onlineUsers = useChatStore((state) => state.onlineUsers);
   const connectSocket = useChatStore((state) => state.connectSocket);
 
-  // Initialize global socket connection for the Admin User
   useEffect(() => {
     if (status === "authenticated" && session?.user?.id) {
-      connectSocket(session.user.id as string);
+      connectSocket(session.user.id);
     }
   }, [status, session, connectSocket]);
 
   // Table State
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [search, setSearch] = useState("");
+  const limit = 10;
 
-  // Data Hooks
-  const { data, isLoading, isError } = useCustomersQuery(page, limit);
+  // Queries
+  const { data, isLoading, isError } = useCustomersQuery(page, limit, search);
   const { mutate: updateModeration, isPending: isUpdating } =
     useUpdateModerationMutation();
 
-  // Edit Modal State
+  // UI State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null,
   );
   const [newStatus, setNewStatus] = useState<string>("");
 
-  // --- Handlers ---
+  // --- Helpers ---
 
   const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= (data?.meta.totalPages || 1)) {
-      setPage(newPage);
+    if (newPage < 1 || newPage > (data?.meta.totalPages || 1)) return;
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const getPageNumbers = (currentPage: number, totalPages: number) => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, "ellipsis", totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(
+          1,
+          "ellipsis",
+          totalPages - 4,
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages,
+        );
+      } else {
+        pages.push(
+          1,
+          "ellipsis",
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          "ellipsis",
+          totalPages,
+        );
+      }
     }
+    return pages;
   };
 
   const handleOpenEdit = (customer: Customer) => {
     setSelectedCustomer(customer);
-    setNewStatus(customer.moderation_status);
+    setNewStatus((customer as any).moderation_status || "PENDING");
     setIsEditModalOpen(true);
   };
 
-  // 3. HANDLE START CHAT
   const handleStartChat = async (customerId: string) => {
     toast({
-      variant: "success",
-      title: "Создание чата...",
-      description: "Пожалуйста, подождите. Идет настройка комнаты.",
+      title: "Подключение...",
+      description: "Открываем диалог с пользователем.",
     });
-
     try {
-      // Hit the standardized init endpoint using your api client
-      const res = await apiRequest<{ chatId: string; partnerId: string }>({
+      const res = await apiRequest<{ partnerId: string }>({
         method: "POST",
         url: "/api/chats/init",
         data: { partnerId: customerId },
       });
-
-      // Route based on partner ID as expected by your ChatDetailScreen
-      if (res && res.partnerId) {
-        router.push(`/chat/${res.partnerId}`);
-      } else {
-        router.push(`/chat/${customerId}`); // Fallback failsafe
-      }
+      if (res?.partnerId) router.push(`/chat/${res.partnerId}`);
     } catch (error) {
-      console.error("Chat Init Error:", error);
       toast({
         variant: "destructive",
         title: "Ошибка",
-        description: "Не удалось открыть чат с заказчиком",
+        description: "Не удалось создать чат.",
       });
     }
   };
 
   const handleSaveStatus = () => {
     if (!selectedCustomer) return;
-
     updateModeration(
       { id: selectedCustomer.id, status: newStatus },
       {
         onSuccess: () => {
-          toast({
-            title: "Успех",
-            description: "Статус модерации успешно обновлен.",
-            className: "bg-green-600 text-white border-green-700",
-          });
+          toast({ title: "Успех", description: "Статус обновлен." });
           setIsEditModalOpen(false);
-          setSelectedCustomer(null);
         },
         onError: () => {
           toast({
@@ -174,7 +186,7 @@ export default function CustomersTable() {
     );
   };
 
-  // --- Render Loading/Error ---
+  // --- Render Logic ---
 
   if (isLoading) {
     return (
@@ -189,248 +201,243 @@ export default function CustomersTable() {
     return (
       <div className="flex flex-col py-20 items-center justify-center text-red-500">
         <X className="h-10 w-10 mb-2" />
-        <p>Не удалось загрузить данные. Попробуйте обновить страницу.</p>
+        <p>Ошибка загрузки данных.</p>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="rounded-md border bg-white shadow-sm">
+    <div className="space-y-4">
+      {/* Search Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по имени или email..."
+            className="pl-10"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Main Table */}
+      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[300px]">Пользователь</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Пользователь</TableHead>
+              <TableHead>Контактные данные</TableHead>
+              <TableHead>Город</TableHead>
               <TableHead>Дата регистрации</TableHead>
               <TableHead>Статус</TableHead>
-              <TableHead>Модерация</TableHead>
               <TableHead className="text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data?.data.map((customer) => {
-              // 4. CHECK ONLINE STATUS WITH .has() FOR SET
-              const isOnline = onlineUsers.has(customer.id);
-
-              return (
-                <TableRow key={customer.id} className="hover:bg-muted/20">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      {/* AVATAR WITH ONLINE DOT */}
-                      <div className="relative">
-                        <Avatar className="h-10 w-10 border border-gray-200">
-                          <AvatarImage src={customer.profile_picture || ""} />
-                          <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                            {customer.name?.substring(0, 2).toUpperCase() ||
-                              "UN"}
-                          </AvatarFallback>
-                        </Avatar>
-                        {/* Status Indicator */}
-                        <span
-                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white transition-colors duration-300 ${
-                            isOnline ? "bg-green-500" : "bg-gray-300"
-                          }`}
-                          title={isOnline ? "Online" : "Offline"}
-                        />
-                      </div>
-
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900">
-                            {customer.name}
-                          </p>
-                          {isOnline && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">
-                              Online
-                            </span>
-                          )}
+            {data?.data && data.data.length > 0 ? (
+              data.data.map((customer) => {
+                const isOnline = onlineUsers.has(customer.id);
+                return (
+                  <TableRow
+                    key={customer.id}
+                    className="hover:bg-muted/10 transition-colors"
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          <Avatar className="h-10 w-10 border border-border">
+                            <AvatarImage src={customer.image || ""} />
+                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                              {customer.name?.slice(0, 2).toUpperCase() || "CU"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span
+                            className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                              isOnline ? "bg-green-500" : "bg-slate-300"
+                            }`}
+                          />
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {customer.city} • {formatPhoneNumber(customer.phone)}
+                        <div className="min-w-0">
+                          <p className="font-medium leading-none truncate">
+                            {customer.name || "Без имени"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {customer.id.slice(-6)}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-sm">
+                        <span className="text-foreground truncate max-w-[200px]">
+                          {customer.email}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {formatPhoneNumber(customer.phone)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-sm">
+                        <p className="font-medium leading-none truncate">
+                          {customer.city || "Город не указан"}
                         </p>
                       </div>
-                    </div>
-                  </TableCell>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(customer.createdAt)}
+                    </TableCell>
+                    <ModerationStatusCell status={customer.moderationStatus} />
 
-                  <TableCell className="text-sm">{customer.email}</TableCell>
-
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(customer.created_at)}
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        customer.status === "active"
-                          ? "border-green-200 text-green-700 bg-green-50"
-                          : "border-red-200 text-red-700 bg-red-50"
-                      }
-                    >
-                      {customer.status === "active"
-                        ? "Активен"
-                        : "Заблокирован"}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant={
-                        customer.moderation_status === "approved"
-                          ? "default"
-                          : customer.moderation_status === "rejected"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {customer.moderation_status === "approved"
-                        ? "Одобрен"
-                        : customer.moderation_status === "rejected"
-                          ? "Отклонен"
-                          : "На проверке"}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4 text-gray-500" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem
-                          onSelect={() => handleStartChat(customer.id)}
-                          className="cursor-pointer"
-                        >
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Написать сообщение
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuItem
-                          onSelect={() => handleOpenEdit(customer)}
-                          className="cursor-pointer"
-                        >
-                          <UserCheck className="mr-2 h-4 w-4" />
-                          Изменить статус
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuItem asChild className="cursor-pointer">
-                          <Link href={`/users/customers/view/${customer.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Детальный просмотр
-                          </Link>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Удалить
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => handleStartChat(customer.id)}
+                            className="cursor-pointer"
+                          >
+                            <MessageSquare className="mr-2 h-4 w-4" /> Написать
+                            сообщение
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleOpenEdit(customer)}
+                            className="cursor-pointer"
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" /> Изменить
+                            статус
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={`/users/customers/view/${customer.id}`}>
+                              <Eye className="mr-2 h-4 w-4" /> Детальный
+                              просмотр
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                            <Trash2 className="mr-2 h-4 w-4" /> Удалить
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  Заказчики не найдены.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
 
-      <Pagination className="mt-4">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious
-              onClick={() => handlePageChange(page - 1)}
-              aria-disabled={page === 1}
-              className={
-                page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
-              }
-            />
-          </PaginationItem>
-          {Array.from({ length: data?.meta.totalPages || 1 }).map((_, i) => (
-            <PaginationItem key={i}>
-              <PaginationLink
-                onClick={() => handlePageChange(i + 1)}
-                isActive={page === i + 1}
-                className="cursor-pointer"
-              >
-                {i + 1}
-              </PaginationLink>
-            </PaginationItem>
-          ))}
-          <PaginationItem>
-            <PaginationNext
-              onClick={() => handlePageChange(page + 1)}
-              aria-disabled={page === data?.meta.totalPages}
-              className={
-                page === data?.meta.totalPages
-                  ? "pointer-events-none opacity-50"
-                  : "cursor-pointer"
-              }
-            />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+      {/* Pagination Footer */}
+      {data?.meta && data.meta.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            Показано{" "}
+            <span className="font-medium">{(page - 1) * limit + 1}</span> -{" "}
+            <span className="font-medium">
+              {Math.min(page * limit, data.meta.total)}
+            </span>{" "}
+            из <span className="font-medium">{data.meta.total}</span>
+          </p>
+          <Pagination className="sm:justify-end w-auto mx-0">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(page - 1)}
+                  className={
+                    page === 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
 
-      {/* --- EDIT MODAL --- */}
+              {getPageNumbers(page, data.meta.totalPages).map((pNum, i) => (
+                <PaginationItem key={i}>
+                  {pNum === "ellipsis" ? (
+                    <span className="px-3 py-2 text-muted-foreground">...</span>
+                  ) : (
+                    <PaginationLink
+                      onClick={() => handlePageChange(pNum as number)}
+                      isActive={page === pNum}
+                      className="cursor-pointer"
+                    >
+                      {pNum}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(page + 1)}
+                  className={
+                    page === data.meta.totalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+
+      {/* Edit Moderation Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Модерация заказчика</DialogTitle>
+            <DialogTitle>Обновить статус модерации</DialogTitle>
             <DialogDescription>
-              Выберите новый статус для пользователя{" "}
-              <span className="font-semibold text-foreground">
-                {selectedCustomer?.name}
-              </span>
+              Изменение статуса для пользователя{" "}
+              <strong className="text-foreground">
+                {selectedCustomer?.name || "Заказчика"}
+              </strong>
               .
             </DialogDescription>
           </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <span className="text-sm font-medium text-right">Статус</span>
-              <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Выберите статус" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending_approval">
-                    ⏳ Ожидает проверки
-                  </SelectItem>
-                  <SelectItem value="approved">✅ Одобрен</SelectItem>
-                  <SelectItem value="rejected">❌ Отклонен</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="py-4">
+            <Select value={newStatus} onValueChange={setNewStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите статус" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="APPROVED">✅ Одобрен</SelectItem>
+                <SelectItem value="PENDING">⏳ На проверке</SelectItem>
+                <SelectItem value="REJECTED">❌ Отклонен</SelectItem>
+                <SelectItem value="BLOCKED">🚫 Заблокирован</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-
-          <DialogFooter className="sm:justify-between">
-            <Button
-              variant="secondary"
-              onClick={() => setIsEditModalOpen(false)}
-            >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
               Отмена
             </Button>
-            <Button
-              onClick={handleSaveStatus}
-              disabled={
-                isUpdating || newStatus === selectedCustomer?.moderation_status
-              }
-            >
+            <Button onClick={handleSaveStatus} disabled={isUpdating}>
               {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Сохранить изменения
+              Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
