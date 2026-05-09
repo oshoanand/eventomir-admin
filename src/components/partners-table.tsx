@@ -63,14 +63,14 @@ import { apiRequest } from "@/utils/api-client";
 import { ModerationStatusCell } from "@/components/ModerationStatusCell";
 
 import {
-  usePerformersQuery,
+  usePartnersQuery,
   useUpdateModerationMutation,
-  Performer,
-} from "@/services/performer";
+  Partner,
+} from "@/services/partner";
 
 import { useChatStore } from "@/store/useChatStore";
 
-export default function PerformersTable() {
+export default function PartnersTable() {
   const { toast } = useToast();
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -90,13 +90,11 @@ export default function PerformersTable() {
   const limit = 10;
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedPerformer, setSelectedPerformer] = useState<Performer | null>(
-    null,
-  );
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
 
   // --- Data Fetching ---
-  const { data, isLoading, isError } = usePerformersQuery(page, limit, search);
+  const { data, isLoading, isError } = usePartnersQuery(page, limit, search);
   const { mutate: updateModeration, isPending: isUpdating } =
     useUpdateModerationMutation();
 
@@ -110,7 +108,7 @@ export default function PerformersTable() {
   };
 
   const getPageNumbers = (currentPage: number, totalPages: number) => {
-    const pages: (number | string)[] = []; // 🚨 FIX: Typed array to handle 'ellipsis' strings
+    const pages: (number | string)[] = [];
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
@@ -141,22 +139,22 @@ export default function PerformersTable() {
     return pages;
   };
 
-  const handleOpenEdit = (performer: Performer) => {
-    setSelectedPerformer(performer);
-    // 🚨 FIX: Fallback to PENDING if list API doesn't provide status yet, normalize to uppercase
+  const handleOpenEdit = (partner: Partner) => {
+    setSelectedPartner(partner);
+
     setNewStatus(
-      (performer as any).moderation_status?.toUpperCase() || "PENDING",
+      (partner as any).moderation_status?.toUpperCase() || "PENDING",
     );
     setIsEditModalOpen(true);
   };
 
-  const handleStartChat = async (performerId: string) => {
+  const handleStartChat = async (partnerId: string) => {
     toast({ title: "Подключение...", description: "Инициализация чата." });
     try {
       const res = await apiRequest<{ partnerId: string }>({
         method: "POST",
         url: "/api/chats/init",
-        data: { partnerId: performerId },
+        data: { partnerId: partnerId },
       });
       if (res?.partnerId) router.push(`/chat/${res.partnerId}`);
     } catch (error) {
@@ -169,9 +167,9 @@ export default function PerformersTable() {
   };
 
   const handleSaveStatus = () => {
-    if (!selectedPerformer) return;
+    if (!selectedPartner) return;
     updateModeration(
-      { id: selectedPerformer.id, status: newStatus.toUpperCase() },
+      { id: selectedPartner.id, status: newStatus.toUpperCase() },
       {
         onSuccess: () => {
           toast({ title: "Успех", description: "Статус модерации обновлен." });
@@ -192,7 +190,7 @@ export default function PerformersTable() {
     return (
       <div className="py-20 text-center text-muted-foreground flex flex-col items-center">
         <Loader2 className="animate-spin h-8 w-8 mb-2" />
-        <p>Загрузка исполнителей...</p>
+        <p>Загрузка Партнеры...</p>
       </div>
     );
 
@@ -206,7 +204,6 @@ export default function PerformersTable() {
 
   return (
     <div className="space-y-4">
-      {/* Search Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -236,17 +233,17 @@ export default function PerformersTable() {
           </TableHeader>
           <TableBody>
             {data?.data && data.data.length > 0 ? (
-              data.data.map((performer) => {
-                const isOnline = onlineUsers.has(performer.id);
+              data.data.map((partner) => {
+                const isOnline = onlineUsers.has(partner.id);
                 return (
-                  <TableRow key={performer.id} className="hover:bg-muted/20">
+                  <TableRow key={partner.id} className="hover:bg-muted/20">
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
                           <Avatar className="h-10 w-10 border border-gray-200">
-                            <AvatarImage src={performer.image || ""} />
+                            <AvatarImage src={partner.image || ""} />
                             <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                              {performer.name?.substring(0, 2).toUpperCase() ||
+                              {partner.name?.substring(0, 2).toUpperCase() ||
                                 "UN"}
                             </AvatarFallback>
                           </Avatar>
@@ -259,12 +256,7 @@ export default function PerformersTable() {
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="font-medium text-gray-900 truncate">
-                            {performer.name || "Исполнитель"}
-                          </span>
-                          <span className="text-xs text-muted-foreground truncate">
-                            {performer.roles?.length
-                              ? performer.roles.join(", ")
-                              : "Роль не указана"}
+                            {partner.name || "Исполнитель"}
                           </span>
                         </div>
                       </div>
@@ -272,24 +264,24 @@ export default function PerformersTable() {
                     <TableCell>
                       <div className="flex flex-col text-sm">
                         <span className="text-foreground truncate max-w-[200px]">
-                          {performer.email}
+                          {partner.email}
                         </span>
                         <span className="text-muted-foreground">
-                          {formatPhoneNumber(performer.phone)}
+                          {formatPhoneNumber(partner.phone)}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col text-sm">
                         <p className="font-medium leading-none truncate">
-                          {performer.city || "Город не указан"}
+                          {partner.city || "Город не указан"}
                         </p>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(performer.createdAt)}
+                      {formatDate(partner.createdAt)}
                     </TableCell>
-                    <ModerationStatusCell status={performer.moderationStatus} />
+                    <ModerationStatusCell status={partner.moderationStatus} />
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -300,7 +292,7 @@ export default function PerformersTable() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
                           <DropdownMenuItem
-                            onClick={() => handleStartChat(performer.id)}
+                            onClick={() => handleStartChat(partner.id)}
                             className="cursor-pointer"
                           >
                             <MessageSquare className="mr-2 h-4 w-4" /> Написать
@@ -308,7 +300,7 @@ export default function PerformersTable() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => handleOpenEdit(performer)}
+                            onClick={() => handleOpenEdit(partner)}
                             className="cursor-pointer"
                           >
                             <UserCheck className="mr-2 h-4 w-4" /> Изменить
@@ -316,7 +308,7 @@ export default function PerformersTable() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem asChild className="cursor-pointer">
-                            <Link href={`/performers/view/${performer.id}`}>
+                            <Link href={`/partners/view/${partner.id}`}>
                               <Eye className="mr-2 h-4 w-4" /> Детальный
                               просмотр
                             </Link>
@@ -406,7 +398,7 @@ export default function PerformersTable() {
             <DialogDescription>
               Измените статус для пользователя{" "}
               <strong className="text-foreground">
-                {selectedPerformer?.name || "Исполнителя"}
+                {selectedPartner?.name || "Исполнителя"}
               </strong>
               .
             </DialogDescription>

@@ -317,7 +317,7 @@ export default function CustomersTable() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem asChild className="cursor-pointer">
-                            <Link href={`/users/customers/view/${customer.id}`}>
+                            <Link href={`/customers/view/${customer.id}`}>
                               <Eye className="mr-2 h-4 w-4" /> Детальный
                               просмотр
                             </Link>

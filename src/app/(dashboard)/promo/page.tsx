@@ -63,11 +63,12 @@ export default function PromosPage() {
             Управление скидками и маркетинговыми акциями
           </p>
         </div>
-        <Link href="/promo/new">
-          <Button className="rounded-full shadow-md font-bold px-6">
-            <Plus className="w-4 h-4 mr-2" /> Создать промокод
-          </Button>
-        </Link>
+
+        <Button asChild>
+          <Link href="/promo/new">
+            <Plus className="mr-2 h-4 w-4" /> Добавить промокод
+          </Link>
+        </Button>
       </div>
 
       <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">

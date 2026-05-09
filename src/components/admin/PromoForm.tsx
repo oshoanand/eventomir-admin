@@ -43,7 +43,7 @@ export function PromoForm({
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4 animate-in fade-in zoom-in-95 duration-500">
+    <div className="max-w-3xl mx-auto py-4 px-4 animate-in fade-in zoom-in-95 duration-500">
       <Link
         href="/promo"
         className="inline-flex items-center text-sm font-semibold text-muted-foreground hover:text-primary mb-6 transition-colors"
@@ -55,13 +55,12 @@ export function PromoForm({
         <h1 className="text-3xl font-black mb-8 tracking-tight">{title}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* 1. ОСНОВНАЯ ИНФОРМАЦИЯ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
               <Label className="text-sm font-bold">Код (ПРОМОКОД)</Label>
               <Input
                 required
-                className="uppercase font-mono text-lg tracking-wider"
+                className="uppercase font-mono text-lg tracking-wider bg-muted/30 px-4 border border-gray-300"
                 placeholder="SUMMER2026"
                 value={formData.code}
                 onChange={(e) =>
@@ -75,7 +74,7 @@ export function PromoForm({
 
             <div className="space-y-3">
               <Label className="text-sm font-bold">Статус</Label>
-              <div className="flex items-center h-10 gap-3 bg-muted/30 px-4 rounded-xl border">
+              <div className="flex items-center h-10 gap-3 bg-muted/30 px-4 rounded-md border">
                 <Switch
                   checked={formData.isActive}
                   onCheckedChange={(val) =>
@@ -98,13 +97,13 @@ export function PromoForm({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
               <div className="space-y-3">
                 <Label className="text-sm font-bold">Тип скидки</Label>
-                <div className="flex rounded-xl bg-muted/50 p-1 border">
+                <div className="flex rounded-md bg-muted/50 p-1 border">
                   <button
                     type="button"
                     className={cn(
                       "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
                       formData.type === "PERCENTAGE"
-                        ? "bg-orange-500 text-white shadow-md" // 👈 Оранжевый активный таб
+                        ? "bg-orange-500 text-white shadow-md"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                     onClick={() =>
@@ -122,7 +121,7 @@ export function PromoForm({
                     className={cn(
                       "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
                       formData.type === "FLAT"
-                        ? "bg-orange-500 text-white shadow-md" // 👈 Оранжевый активный таб
+                        ? "bg-orange-500 text-white shadow-md"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                     onClick={() =>
@@ -145,7 +144,7 @@ export function PromoForm({
                     required
                     type="number"
                     min="1"
-                    className="pl-4 pr-10 font-bold"
+                    className="pl-4 pr-10 font-bold bg-muted/30 px-4 border border-gray-300"
                     value={formData.value || ""}
                     onChange={(e) =>
                       setFormData({
@@ -166,7 +165,8 @@ export function PromoForm({
                   <Input
                     type="number"
                     min="1"
-                    placeholder="Без лимита"
+                    className="bg-muted/30 px-4 border border-gray-300"
+                    placeholder="Без лимита "
                     value={formData.maxDiscountAmount || ""}
                     onChange={(e) =>
                       setFormData({
@@ -193,7 +193,7 @@ export function PromoForm({
                 <Label className="text-sm font-bold">
                   Привязка к пользователю
                 </Label>
-                <div className="flex rounded-xl bg-muted/50 p-1 border">
+                <div className="flex rounded-md bg-muted/50 p-1 border">
                   <button
                     type="button"
                     className={cn(
@@ -237,6 +237,7 @@ export function PromoForm({
                 <Input
                   type="number"
                   min="1"
+                  className="bg-muted/30 px-4 border border-gray-300"
                   placeholder="Бесконечно"
                   value={formData.maxUses || ""}
                   onChange={(e) =>
@@ -261,6 +262,7 @@ export function PromoForm({
                 <Input
                   type="number"
                   min="1"
+                  className="bg-muted/30 px-4 border border-gray-300"
                   placeholder="От любой суммы"
                   value={formData.minOrderAmount || ""}
                   onChange={(e) =>
@@ -278,7 +280,7 @@ export function PromoForm({
                 <Label className="text-sm font-bold">Срок действия (до)</Label>
                 <Input
                   type="date"
-                  className="w-full"
+                  className="w-full bg-muted/30 px-4 border border-gray-300"
                   value={formData.validUntil || ""}
                   onChange={(e) =>
                     setFormData({

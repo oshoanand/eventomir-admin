@@ -108,12 +108,9 @@ export default function LoginPage() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative w-full max-w-[420px] px-4"
       >
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-8">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800  rounded-2xl p-8">
           {/* Header Section */}
           <div className="flex flex-col items-center space-y-3 mb-8">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Atom className="h-7 w-7 text-white" />
-            </div>
             <div className="text-center">
               <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 EVENTOMIR ADMIN

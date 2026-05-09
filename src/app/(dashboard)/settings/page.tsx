@@ -651,6 +651,7 @@ export default function SettingsPage() {
                   <Label>Email</Label>
                   <Input
                     type="email"
+                    className="bg-muted/30 px-4 border border-gray-300"
                     value={settings.contacts?.email || ""}
                     onChange={(e) =>
                       handleContactSettingsChange("email", e.target.value)
@@ -661,6 +662,7 @@ export default function SettingsPage() {
                   <Label>Телефон</Label>
                   <Input
                     type="tel"
+                    className="bg-muted/30 px-4 border border-gray-300"
                     value={settings.contacts?.phone || ""}
                     onChange={(e) =>
                       handleContactSettingsChange("phone", e.target.value)
@@ -671,6 +673,7 @@ export default function SettingsPage() {
                   <Label>VK</Label>
                   <Input
                     type="url"
+                    className="bg-muted/30 px-4 border border-gray-300"
                     value={settings.contacts?.vkLink || ""}
                     onChange={(e) =>
                       handleContactSettingsChange("vkLink", e.target.value)
@@ -681,6 +684,7 @@ export default function SettingsPage() {
                   <Label>Telegram</Label>
                   <Input
                     type="url"
+                    className="bg-muted/30 px-4 border border-gray-300"
                     value={settings.contacts?.telegramLink || ""}
                     onChange={(e) =>
                       handleContactSettingsChange(
