@@ -145,7 +145,7 @@ export default function PerformersTable() {
     setSelectedPerformer(performer);
     // 🚨 FIX: Fallback to PENDING if list API doesn't provide status yet, normalize to uppercase
     setNewStatus(
-      (performer as any).moderation_status?.toUpperCase() || "PENDING",
+      (performer as any).moderationStatus?.toUpperCase() || "PENDING",
     );
     setIsEditModalOpen(true);
   };
@@ -174,7 +174,11 @@ export default function PerformersTable() {
       { id: selectedPerformer.id, status: newStatus.toUpperCase() },
       {
         onSuccess: () => {
-          toast({ title: "Успех", description: "Статус модерации обновлен." });
+          toast({
+            variant: "success",
+            title: "Успех",
+            description: "Статус модерации обновлен.",
+          });
           setIsEditModalOpen(false);
         },
         onError: (error: any) => {

@@ -51,6 +51,7 @@ import {
   Trash2,
   Eye,
   Search,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,8 @@ import { ModerationStatusCell } from "@/components/ModerationStatusCell";
 import {
   usePartnersQuery,
   useUpdateModerationMutation,
+  useDeletePartnerMutation,
+  checkLinkedUsers,
   Partner,
 } from "@/services/partner";
 
@@ -93,13 +96,22 @@ export default function PartnersTable() {
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
 
+  // --- Delete Modal State ---
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCheckingLinks, setIsCheckingLinks] = useState(false);
+  const [linkedStats, setLinkedStats] = useState({
+    performers: 0,
+    customers: 0,
+  });
+
   // --- Data Fetching ---
   const { data, isLoading, isError } = usePartnersQuery(page, limit, search);
   const { mutate: updateModeration, isPending: isUpdating } =
     useUpdateModerationMutation();
+  const { mutate: deletePartner, isPending: isDeleting } =
+    useDeletePartnerMutation();
 
   // --- Helpers ---
-
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= (data?.meta.totalPages || 1)) {
       setPage(newPage);
@@ -141,10 +153,7 @@ export default function PartnersTable() {
 
   const handleOpenEdit = (partner: Partner) => {
     setSelectedPartner(partner);
-
-    setNewStatus(
-      (partner as any).moderation_status?.toUpperCase() || "PENDING",
-    );
+    setNewStatus((partner as any).moderationStatus?.toUpperCase() || "PENDING");
     setIsEditModalOpen(true);
   };
 
@@ -172,7 +181,11 @@ export default function PartnersTable() {
       { id: selectedPartner.id, status: newStatus.toUpperCase() },
       {
         onSuccess: () => {
-          toast({ title: "Успех", description: "Статус модерации обновлен." });
+          toast({
+            variant: "success",
+            title: "Успех",
+            description: "Статус модерации обновлен.",
+          });
           setIsEditModalOpen(false);
         },
         onError: (error: any) => {
@@ -184,6 +197,52 @@ export default function PartnersTable() {
         },
       },
     );
+  };
+
+  // --- Delete Logic ---
+  const handleOpenDelete = async (partner: Partner) => {
+    setSelectedPartner(partner);
+    setIsDeleteModalOpen(true);
+    setIsCheckingLinks(true);
+
+    try {
+      const stats = await checkLinkedUsers(partner.id);
+      setLinkedStats({
+        performers: stats.linkedPerformers,
+        customers: stats.linkedCustomers,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Не удалось проверить связанные профили.",
+      });
+    } finally {
+      setIsCheckingLinks(false);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (!selectedPartner) return;
+
+    deletePartner(selectedPartner.id, {
+      onSuccess: () => {
+        toast({
+          variant: "success",
+          title: "Успех",
+          description: "Партнер успешно удален.",
+        });
+        setIsDeleteModalOpen(false);
+        setSelectedPartner(null);
+      },
+      onError: (error: any) => {
+        toast({
+          variant: "destructive",
+          title: "Ошибка",
+          description: error.message || "Не удалось удалить партнера.",
+        });
+      },
+    });
   };
 
   if (isLoading)
@@ -314,7 +373,10 @@ export default function PartnersTable() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                          <DropdownMenuItem
+                            onClick={() => handleOpenDelete(partner)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Удалить
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -326,10 +388,10 @@ export default function PartnersTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Исполнители не найдены.
+                  Партнеры не найдены.
                 </TableCell>
               </TableRow>
             )}
@@ -390,15 +452,15 @@ export default function PartnersTable() {
         </div>
       )}
 
-      {/* --- EDIT MODAL --- */}
+      {/* --- EDIT STATUS MODAL --- */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Модерация исполнителя</DialogTitle>
+            <DialogTitle>Модерация Партнер</DialogTitle>
             <DialogDescription>
               Измените статус для пользователя{" "}
               <strong className="text-foreground">
-                {selectedPartner?.name || "Исполнителя"}
+                {selectedPartner?.name || "Партнер"}
               </strong>
               .
             </DialogDescription>
@@ -433,6 +495,82 @@ export default function PartnersTable() {
             >
               {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- DELETE CONFIRMATION MODAL --- */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="sm:max-w-md border-red-100">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Угроза потери данных
+            </DialogTitle>
+            <DialogDescription className="pt-3 text-slate-700">
+              Вы собираетесь безвозвратно удалить аккаунт{" "}
+              <strong>{selectedPartner?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            {isCheckingLinks ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Проверка связанных профилей...</span>
+              </div>
+            ) : (
+              (linkedStats.performers > 0 || linkedStats.customers > 0) && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 space-y-2">
+                  <p className="font-semibold">
+                    Внимание! У этого партнера есть привязанные пользователи:
+                  </p>
+                  <ul className="list-disc pl-5">
+                    {linkedStats.performers > 0 && (
+                      <li>Исполнителей: {linkedStats.performers}</li>
+                    )}
+                    {linkedStats.customers > 0 && (
+                      <li>Заказчиков: {linkedStats.customers}</li>
+                    )}
+                  </ul>
+                  <p className="pt-2">
+                    Если вы удалите партнера, его запись и профиль партнера
+                    будут безвозвратно удалены.
+                  </p>
+                </div>
+              )
+            )}
+            {!isCheckingLinks &&
+              linkedStats.performers === 0 &&
+              linkedStats.customers === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  У данного партнера нет привязанных пользователей. Удаление
+                  пройдет безопасно.
+                </p>
+              )}
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isDeleting}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting || isCheckingLinks}
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Удалить безвозвратно
             </Button>
           </DialogFooter>
         </DialogContent>

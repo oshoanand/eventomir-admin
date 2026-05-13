@@ -70,6 +70,16 @@ export const updatePerformerModeration = async (id: string, status: string) => {
   });
 };
 
+export const deletePerformerProfile = async (id: string) => {
+  return await apiRequest({
+    method: "DELETE",
+    url: `/api/admin/profile/delete/${id}`,
+    data: {
+      userType: "partner",
+    },
+  });
+};
+
 // ==========================================
 // 3. REACT QUERY HOOKS
 // ==========================================
@@ -97,3 +107,28 @@ export function useUpdateModerationMutation() {
     },
   });
 }
+
+export const checkLinkedUsers = async (partnerId: string) => {
+  return await apiRequest<{
+    linkedPerformers: number;
+    linkedCustomers: number;
+  }>({
+    url: `/api/admin/partners/${partnerId}/linked-count`,
+    method: "GET",
+  });
+};
+export const useDeletePartnerMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (partnerId: string) => {
+      return await apiRequest({
+        method: "DELETE",
+        url: `/api/admin/profile/delete/${partnerId}?userType=partner`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partners"] });
+    },
+  });
+};

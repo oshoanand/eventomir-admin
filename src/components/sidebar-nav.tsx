@@ -29,6 +29,8 @@ import {
   MessageCircleMore,
   Tags,
   ChartColumnBigIcon,
+  CircleDollarSign,
+  PercentCircleIcon,
 } from "lucide-react";
 import { useChatStore } from "@/store/useChatStore";
 import { cn } from "@/utils/utils";
@@ -70,6 +72,13 @@ export function SidebarNav() {
         { href: "/performers", icon: User, label: "Исполнители" },
         { href: "/customers", icon: User, label: "Заказчик" },
         { href: "/partners", icon: Handshake, label: "Партнеры" },
+      ],
+    },
+    {
+      label: "Финансы",
+      items: [
+        { href: "/payments", icon: CircleDollarSign, label: "Платежи" },
+        { href: "/commision", icon: PercentCircleIcon, label: "Комиссия" },
       ],
     },
     {

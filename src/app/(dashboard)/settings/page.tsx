@@ -7,7 +7,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +31,10 @@ import {
   LayoutTemplate,
   Link as LinkIcon,
   Layers,
+  Wallet,
+  Percent,
+  DollarSign,
+  ListOrdered,
 } from "lucide-react";
 import {
   Select,
@@ -59,7 +62,8 @@ import {
   type SiteCategory,
   type PageSEO,
   type SubCategory,
-} from "@/data/use-settings";
+  type CommissionSlab,
+} from "@/services/settings";
 
 const THEME_OPTIONS = [
   { id: "zinc", name: "Монохром (Zinc)", color: "bg-zinc-900" },
@@ -131,11 +135,11 @@ export default function SettingsPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [faviconFile, setFaviconFile] = useState<File | null>(null);
 
+  // --- Category State ---
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SiteCategory | null>(
     null,
   );
-
   const [categoryFormData, setCategoryFormData] = useState<{
     name: string;
     icon: string;
@@ -143,6 +147,7 @@ export default function SettingsPage() {
     subCategories: SubCategory[];
   }>({ name: "", icon: "Star", link: "", subCategories: [] });
 
+  // --- SEO State ---
   const [isSeoDialogOpen, setIsSeoDialogOpen] = useState(false);
   const [editingSeo, setEditingSeo] = useState<PageSEO | null>(null);
   const [seoFormData, setSeoFormData] = useState<PageSEO>({
@@ -150,6 +155,18 @@ export default function SettingsPage() {
     title: "",
     description: "",
     keywords: "",
+  });
+
+  // --- Slabs State ---
+  const [isSlabDialogOpen, setIsSlabDialogOpen] = useState(false);
+  const [editingSlabId, setEditingSlabId] = useState<string | null>(null);
+  const [slabFormData, setSlabFormData] = useState<CommissionSlab>({
+    id: "",
+    name: "",
+    minAmount: 0,
+    maxAmount: null,
+    percent: 5,
+    flat: 0,
   });
 
   const handleSettingsChange = (field: keyof SiteSettings, value: any) => {
@@ -387,6 +404,70 @@ export default function SettingsPage() {
     handleSettingsChange("pageSpecificSEO", updatedSeoList);
   };
 
+  // --- SLAB HANDLERS ---
+  const openAddSlabDialog = () => {
+    setEditingSlabId(null);
+    setSlabFormData({
+      id: String(Date.now()),
+      name: "",
+      minAmount: 0,
+      maxAmount: null,
+      percent: 5,
+      flat: 0,
+    });
+    setIsSlabDialogOpen(true);
+  };
+
+  const openEditSlabDialog = (slab: CommissionSlab) => {
+    setEditingSlabId(slab.id);
+    setSlabFormData({ ...slab });
+    setIsSlabDialogOpen(true);
+  };
+
+  const handleSaveSlab = () => {
+    if (!settings) return;
+
+    if (
+      slabFormData.minAmount < 0 ||
+      slabFormData.percent < 0 ||
+      slabFormData.flat < 0
+    ) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Значения не могут быть отрицательными.",
+      });
+      return;
+    }
+
+    let updatedSlabs = settings.commissionSlabs || [];
+
+    if (editingSlabId) {
+      updatedSlabs = updatedSlabs.map((s) =>
+        s.id === editingSlabId ? slabFormData : s,
+      );
+    } else {
+      updatedSlabs = [...updatedSlabs, slabFormData];
+    }
+
+    // Сортируем слэбы по возрастанию минимальной суммы
+    updatedSlabs.sort((a, b) => a.minAmount - b.minAmount);
+
+    handleSettingsChange("commissionSlabs", updatedSlabs);
+    setIsSlabDialogOpen(false);
+    toast({
+      variant: "success",
+      title: "Уровень сохранен",
+      description: "Не забудьте нажать 'Сохранить сетку тарифов'.",
+    });
+  };
+
+  const handleRemoveSlab = (id: string) => {
+    if (!settings || !settings.commissionSlabs) return;
+    const updatedSlabs = settings.commissionSlabs.filter((s) => s.id !== id);
+    handleSettingsChange("commissionSlabs", updatedSlabs);
+  };
+
   if (isSettingsLoading || !settings) {
     return (
       <div className="container mx-auto py-10 space-y-6">
@@ -424,6 +505,9 @@ export default function SettingsPage() {
           <TabsTrigger value="seo" className="gap-2 px-4 py-2">
             <Tags className="h-4 w-4" /> SEO
           </TabsTrigger>
+          <TabsTrigger value="finance" className="gap-2 px-4 py-2">
+            <Wallet className="h-4 w-4" /> Финансы
+          </TabsTrigger>
         </TabsList>
 
         {/* --- GENERAL TAB --- */}
@@ -442,6 +526,7 @@ export default function SettingsPage() {
                 </Label>
                 <Input
                   id="siteName"
+                  className="border border-gray-300"
                   value={settings.siteName}
                   onChange={(e) =>
                     handleSettingsChange("siteName", e.target.value)
@@ -749,7 +834,6 @@ export default function SettingsPage() {
                             <LinkIcon className="h-3 w-3" />{" "}
                             {(category as any).link || "Нет ссылки"}
                           </span>
-
                           {category.subCategories &&
                           category.subCategories.length > 0 ? (
                             <span className="text-[11px] font-medium text-primary flex items-center gap-1 bg-primary/10 w-fit px-1.5 py-0.5 rounded">
@@ -871,11 +955,198 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* --- FINANCE TAB --- */}
+        <TabsContent value="finance" className="space-y-6">
+          {/* Base Finance Settings */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" /> Базовые тарифы
+              </CardTitle>
+              <CardDescription>
+                Глобальные настройки стоимости услуг и комиссий по умолчанию.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-slate-400" /> Цена
+                    платной заявки (₽)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    className="border border-gray-300"
+                    value={settings.paidRequestPrice ?? 490}
+                    onChange={(e) =>
+                      handleSettingsChange(
+                        "paidRequestPrice",
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Списывается при отклике на заказ
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Percent className="w-4 h-4 text-slate-400" /> Базовая
+                    комиссия (%)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    className="border border-gray-300"
+                    value={settings.commissionRatePercent ?? 5}
+                    onChange={(e) =>
+                      handleSettingsChange(
+                        "commissionRatePercent",
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Процент с безопасной сделки
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-slate-400" /> Базовая
+                    комиссия (Фикс ₽)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    className="border border-gray-300"
+                    value={settings.commissionRateFlat ?? 0}
+                    onChange={(e) =>
+                      handleSettingsChange(
+                        "commissionRateFlat",
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Добавляется поверх процента
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() =>
+                  handleSaveSettings([
+                    "paidRequestPrice",
+                    "commissionRatePercent",
+                    "commissionRateFlat",
+                  ])
+                }
+                disabled={updateSettingsMutation.isPending}
+              >
+                Сохранить базовые тарифы
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Commission Slabs (Tiers) */}
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ListOrdered className="h-5 w-5 text-primary" /> Тарифные
+                  сетки (Слабы)
+                </CardTitle>
+                <CardDescription>
+                  Настройте динамическую комиссию в зависимости от суммы сделки.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10"
+                onClick={openAddSlabDialog}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Добавить уровень
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {settings.commissionSlabs &&
+                settings.commissionSlabs.length > 0 ? (
+                  settings.commissionSlabs.map((slab) => (
+                    <div
+                      key={slab.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border rounded-lg gap-4"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-800">
+                          {slab.name || "Уровень без названия"}
+                        </p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Сумма сделки:{" "}
+                          <span className="font-mono bg-white px-1.5 py-0.5 border rounded">
+                            от {slab.minAmount.toLocaleString("ru-RU")} ₽
+                          </span>
+                          {slab.maxAmount ? (
+                            <span>
+                              {" "}
+                              до{" "}
+                              <span className="font-mono bg-white px-1.5 py-0.5 border rounded">
+                                {slab.maxAmount.toLocaleString("ru-RU")} ₽
+                              </span>
+                            </span>
+                          ) : (
+                            " и выше"
+                          )}
+                        </p>
+                        <p className="text-sm text-primary font-semibold mt-1">
+                          Комиссия: {slab.percent}%{" "}
+                          {slab.flat > 0 && `+ ${slab.flat} ₽`}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditSlabDialog(slab)}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" /> Изменить
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleRemoveSlab(slab.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-center text-muted-foreground py-8 border rounded-lg bg-slate-50 border-dashed">
+                    Слабы не настроены. Используется базовая комиссия.
+                  </p>
+                )}
+              </div>
+              <Button
+                className="mt-6"
+                onClick={() => handleSaveSettings(["commissionSlabs"])}
+                disabled={updateSettingsMutation.isPending}
+              >
+                Сохранить сетку тарифов
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* --- DIALOGS --- */}
 
-      {/* REDESIGNED CATEGORY DIALOG */}
+      {/* CATEGORY DIALOG */}
       <Dialog
         open={isCategoryDialogOpen}
         onOpenChange={setIsCategoryDialogOpen}
@@ -891,12 +1162,10 @@ export default function SettingsPage() {
 
           <ScrollArea className="max-h-[65vh]">
             <div className="px-6 py-6 space-y-8">
-              {/* Main Category Info Card */}
               <div className="space-y-4 p-5 border rounded-xl bg-card shadow-sm">
                 <h4 className="font-semibold text-sm flex items-center gap-2 text-primary">
                   <Tags className="h-4 w-4" /> Основные данные
                 </h4>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wider">
@@ -914,7 +1183,6 @@ export default function SettingsPage() {
                       className="bg-muted/50"
                     />
                   </div>
-
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wider">
                       URL Фильтра (/search?...)
@@ -931,7 +1199,6 @@ export default function SettingsPage() {
                       className="bg-muted/50 font-mono text-sm"
                     />
                   </div>
-
                   <div className="space-y-2 sm:col-span-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wider">
                       Иконка (Lucide)
@@ -971,7 +1238,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Sub-Categories Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-semibold text-sm flex items-center gap-2 text-primary">
@@ -981,7 +1247,6 @@ export default function SettingsPage() {
                     {categoryFormData.subCategories.length} шт.
                   </Badge>
                 </div>
-
                 <div className="space-y-3">
                   {categoryFormData.subCategories.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed rounded-xl bg-slate-50/50">
@@ -1002,7 +1267,6 @@ export default function SettingsPage() {
                               {index + 1}
                             </span>
                           </div>
-
                           <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Label className="text-[10px] text-muted-foreground uppercase opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1039,7 +1303,6 @@ export default function SettingsPage() {
                               />
                             </div>
                           </div>
-
                           <Button
                             type="button"
                             variant="ghost"
@@ -1054,8 +1317,6 @@ export default function SettingsPage() {
                       ))}
                     </div>
                   )}
-
-                  {/* Beautiful dashed add button */}
                   <Button
                     type="button"
                     variant="outline"
@@ -1069,7 +1330,6 @@ export default function SettingsPage() {
               </div>
             </div>
           </ScrollArea>
-
           <DialogFooter className="px-6 py-4 border-t bg-slate-50/50">
             <Button
               variant="outline"
@@ -1084,7 +1344,7 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* SEO Dialog (Preserved) */}
+      {/* SEO DIALOG */}
       <Dialog open={isSeoDialogOpen} onOpenChange={setIsSeoDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -1140,6 +1400,110 @@ export default function SettingsPage() {
             <Button onClick={handleSaveSeo}>
               {editingSeo ? "Сохранить" : "Добавить"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SLAB DIALOG */}
+      <Dialog open={isSlabDialogOpen} onOpenChange={setIsSlabDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSlabId ? "Редактировать уровень" : "Добавить уровень"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Название уровня (опционально)</Label>
+              <Input
+                placeholder="Например: Крупные сделки"
+                value={slabFormData.name}
+                onChange={(e) =>
+                  setSlabFormData((p) => ({ ...p, name: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Сумма от (₽)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={slabFormData.minAmount}
+                  onChange={(e) =>
+                    setSlabFormData((p) => ({
+                      ...p,
+                      minAmount: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  Сумма до (₽){" "}
+                  <span className="text-muted-foreground font-normal">
+                    (пусто для ∞)
+                  </span>
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="∞"
+                  value={slabFormData.maxAmount ?? ""}
+                  onChange={(e) =>
+                    setSlabFormData((p) => ({
+                      ...p,
+                      maxAmount: e.target.value
+                        ? parseFloat(e.target.value)
+                        : null,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Комиссия (%)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={slabFormData.percent}
+                  onChange={(e) =>
+                    setSlabFormData((p) => ({
+                      ...p,
+                      percent: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Фикс. сбор (₽)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={slabFormData.flat}
+                  onChange={(e) =>
+                    setSlabFormData((p) => ({
+                      ...p,
+                      flat: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsSlabDialogOpen(false)}
+            >
+              Отмена
+            </Button>
+            <Button onClick={handleSaveSlab}>Применить</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

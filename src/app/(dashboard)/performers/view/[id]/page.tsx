@@ -46,6 +46,7 @@ export default function PerformerDetailsPage() {
   const id = params.id as string;
 
   const { data: performer, isLoading, isError } = usePerformerDetailsQuery(id);
+  console.log(performer);
 
   const handleStartChat = async () => {
     toast({
@@ -56,7 +57,7 @@ export default function PerformerDetailsPage() {
     try {
       const res = await apiRequest<{ partnerId: string }>({
         method: "POST",
-        url: "/api/chats/init", // 🚨 FIX: Updated chat endpoint
+        url: "/api/chats/init",
         data: { partnerId: id },
       });
 
